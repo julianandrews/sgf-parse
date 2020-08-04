@@ -1,0 +1,7 @@
+[package]
+name = "sgf-parse"
+version = "0.1.0"
+authors = ["Julian Andrews <jandrews271@gmail.com>"]
+edition = "2018"
+
+[dependencies]
