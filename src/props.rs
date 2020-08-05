@@ -9,6 +9,13 @@ pub enum Double {
     Two,
 }
 
+/// An SGF [Color](https://www.red-bean.com/sgf/sgf4.html#types) value.
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum Color {
+    Black,
+    White,
+}
+
 /// An SGF [Point](https://www.red-bean.com/sgf/go.html#types) value for the Game of Go.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Point {
@@ -118,7 +125,7 @@ pub enum SgfProp {
     AB(Vec<Point>),
     AE(Vec<Point>),
     AW(Vec<Point>),
-    // TODO: PL(color) - setup property
+    PL(Color),
     // Node Annotation properties
     C(Text),
     DM(Double),
@@ -211,6 +218,7 @@ impl SgfProp {
             "AB" => Ok(SgfProp::AB(parse_list_point(&values)?)),
             "AE" => Ok(SgfProp::AE(parse_list_point(&values)?)),
             "AW" => Ok(SgfProp::AW(parse_list_point(&values)?)),
+            "PL" => Ok(SgfProp::PL(parse_single_value(&values)?)),
             "C" => Ok(SgfProp::C(parse_single_value(&values)?)),
             "DM" => Ok(SgfProp::DM(parse_single_value(&values)?)),
             "GB" => Ok(SgfProp::GB(parse_single_value(&values)?)),
@@ -324,6 +332,7 @@ impl SgfProp {
             SgfProp::AB(_) => "AB".to_string(),
             SgfProp::AE(_) => "AE".to_string(),
             SgfProp::AW(_) => "AW".to_string(),
+            SgfProp::PL(_) => "PL".to_string(),
             SgfProp::C(_) => "C".to_string(),
             SgfProp::DM(_) => "DM".to_string(),
             SgfProp::GB(_) => "GB".to_string(),
@@ -406,6 +415,7 @@ impl SgfProp {
             SgfProp::AB(_) => Some(PropertyType::Setup),
             SgfProp::AE(_) => Some(PropertyType::Setup),
             SgfProp::AW(_) => Some(PropertyType::Setup),
+            SgfProp::PL(_) => Some(PropertyType::Setup),
             SgfProp::DO => Some(PropertyType::Move),
             SgfProp::IT => Some(PropertyType::Move),
             SgfProp::BM(_) => Some(PropertyType::Move),
@@ -603,6 +613,20 @@ impl std::str::FromStr for Double {
             Ok(Double::One)
         } else if s == "2" {
             Ok(Double::Two)
+        } else {
+            Err(SgfParseError::InvalidPropertyValue)
+        }
+    }
+}
+
+impl std::str::FromStr for Color {
+    type Err = SgfParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if s == "B" {
+            Ok(Color::Black)
+        } else if s == "W" {
+            Ok(Color::White)
         } else {
             Err(SgfParseError::InvalidPropertyValue)
         }
