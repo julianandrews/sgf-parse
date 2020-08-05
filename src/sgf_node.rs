@@ -124,14 +124,14 @@ fn validate_node_props(props: &Vec<SgfProp>) -> Result<(bool, bool), SgfParseErr
     for prop in props.iter() {
         match prop {
             SgfProp::B(_) => {
+                move_seen = true;
                 if identifiers.contains("W") {
-                    move_seen = true;
                     Err(SgfParseError::InvalidNodeProps(props.clone()))?;
                 }
             }
             SgfProp::W(_) => {
+                move_seen = true;
                 if identifiers.contains("B") {
-                    move_seen = true;
                     Err(SgfParseError::InvalidNodeProps(props.clone()))?;
                 }
             }
