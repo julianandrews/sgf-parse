@@ -7,14 +7,33 @@ use super::{PropertyType, SgfParseError, SgfProp};
 pub struct SgfNode {
     properties: Vec<SgfProp>,
     children: Vec<SgfNode>,
+    is_root: bool,
+    has_game_info: bool,
 }
 
 impl SgfNode {
-    pub fn new(props: Vec<SgfProp>, children: Vec<SgfNode>) -> Result<SgfNode, SgfParseError> {
-        validate_node_props(&props)?;
+    pub fn new(
+        props: Vec<SgfProp>,
+        children: Vec<SgfNode>,
+        is_root: bool,
+    ) -> Result<SgfNode, SgfParseError> {
+        let (has_root_props, has_game_info_props) = validate_node_props(&props)?;
+        if has_root_props && !is_root {
+            Err(SgfParseError::InvalidNode(
+                "Root properties in non-root node".to_string(),
+            ))?;
+        }
+        let children_have_game_info = children.iter().any(|child| child.has_game_info);
+        if has_game_info_props && children_have_game_info {
+            Err(SgfParseError::InvalidNode(
+                "Multiple GameInfo nodes in path.".to_string(),
+            ))?;
+        }
         Ok(SgfNode {
             properties: props,
             children: children,
+            is_root: is_root,
+            has_game_info: has_game_info_props || children_have_game_info,
         })
     }
 
@@ -93,20 +112,26 @@ impl IntoIterator for SgfNode {
     }
 }
 
-fn validate_node_props(props: &Vec<SgfProp>) -> Result<(), SgfParseError> {
+fn validate_node_props(props: &Vec<SgfProp>) -> Result<(bool, bool), SgfParseError> {
     let mut identifiers = HashSet::new();
     let mut setup_node = false;
     let mut move_node = false;
+    let mut move_seen = false;
+    let mut game_info_node = false;
+    let mut root_node = false;
     let mut exclusive_node_annotations = 0;
+    let mut move_annotation_count = 0;
     for prop in props.iter() {
         match prop {
             SgfProp::B(_) => {
                 if identifiers.contains("W") {
+                    move_seen = true;
                     Err(SgfParseError::InvalidNodeProps(props.clone()))?;
                 }
             }
             SgfProp::W(_) => {
                 if identifiers.contains("B") {
+                    move_seen = true;
                     Err(SgfParseError::InvalidNodeProps(props.clone()))?;
                 }
             }
@@ -114,11 +139,17 @@ fn validate_node_props(props: &Vec<SgfProp>) -> Result<(), SgfParseError> {
             SgfProp::UC(_) => exclusive_node_annotations += 1,
             SgfProp::GW(_) => exclusive_node_annotations += 1,
             SgfProp::GB(_) => exclusive_node_annotations += 1,
+            SgfProp::BM(_) => move_annotation_count += 1,
+            SgfProp::DO => move_annotation_count += 1,
+            SgfProp::IT => move_annotation_count += 1,
+            SgfProp::TE(_) => move_annotation_count += 1,
             _ => {}
         }
         match prop.property_type() {
             Some(PropertyType::Move) => move_node = true,
             Some(PropertyType::Setup) => setup_node = true,
+            Some(PropertyType::GameInfo) => game_info_node = true,
+            Some(PropertyType::Root) => root_node = true,
             _ => {}
         }
         let ident = prop.identifier();
@@ -133,12 +164,12 @@ fn validate_node_props(props: &Vec<SgfProp>) -> Result<(), SgfParseError> {
     if identifiers.contains("KO") && !(identifiers.contains("B") || identifiers.contains("W")) {
         Err(SgfParseError::InvalidNodeProps(props.clone()))?;
     }
+    if move_annotation_count > 1 || (move_annotation_count == 1 && !move_seen) {
+        Err(SgfParseError::InvalidNodeProps(props.clone()))?;
+    }
     if exclusive_node_annotations > 1 {
         Err(SgfParseError::InvalidNodeProps(props.clone()))?;
     }
-    // TODO: Validate no move annotations without move.
-    // TODO: Validate no more than one markup property per point.
-    // TODO: Validate root properties only on root nodes
-    // TODO: Validate game-info properties only once per path.
-    Ok(())
+    // TODO: Validate no more than one of CR, MA, SL, SQ, TR per point
+    Ok((root_node, game_info_node))
 }

@@ -3,6 +3,7 @@ use super::SgfProp;
 /// Error type for all sgf parsing errors.
 #[derive(Debug)]
 pub enum SgfParseError {
+    InvalidNode(String),
     InvalidNodeProps(Vec<SgfProp>),
     ParseError(String),
     InvalidPropertyValue,
@@ -11,6 +12,7 @@ pub enum SgfParseError {
 impl std::fmt::Display for SgfParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
+            SgfParseError::InvalidNode(s) => write!(f, "Invalid Node: {}", s),
             SgfParseError::InvalidNodeProps(props) => {
                 write!(f, "Invalid Node Properties: {:?}", props)
             }

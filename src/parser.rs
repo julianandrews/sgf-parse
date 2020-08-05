@@ -23,7 +23,7 @@ pub fn parse(text: &str) -> Result<Vec<SgfNode>, SgfParseError> {
     let mut nodes: Vec<SgfNode> = vec![];
     let mut text = text.trim();
     while !text.is_empty() {
-        let (node, new_text) = parse_game_tree(text)?;
+        let (node, new_text) = parse_game_tree(text, true)?;
         nodes.push(node);
         text = new_text.trim();
     }
@@ -33,12 +33,12 @@ pub fn parse(text: &str) -> Result<Vec<SgfNode>, SgfParseError> {
     Ok(nodes)
 }
 
-fn parse_game_tree(mut text: &str) -> Result<(SgfNode, &str), SgfParseError> {
+fn parse_game_tree(mut text: &str, is_root: bool) -> Result<(SgfNode, &str), SgfParseError> {
     if text.chars().next() != Some('(') {
         Err(SgfParseError::ParseError(text.to_string()))?;
     }
     text = &text[1..].trim();
-    let (node, new_text) = parse_node(text)?;
+    let (node, new_text) = parse_node(text, is_root)?;
     text = &new_text.trim();
     if text.chars().next() != Some(')') {
         Err(SgfParseError::ParseError(text.to_string()))?;
@@ -47,7 +47,7 @@ fn parse_game_tree(mut text: &str) -> Result<(SgfNode, &str), SgfParseError> {
     Ok((node, &text[1..]))
 }
 
-fn parse_node(mut text: &str) -> Result<(SgfNode, &str), SgfParseError> {
+fn parse_node(mut text: &str, is_root: bool) -> Result<(SgfNode, &str), SgfParseError> {
     if text.chars().next() != Some(';') {
         Err(SgfParseError::ParseError(text.to_string()))?;
     }
@@ -67,17 +67,19 @@ fn parse_node(mut text: &str) -> Result<(SgfNode, &str), SgfParseError> {
     text = &text.trim();
     let mut children: Vec<SgfNode> = vec![];
     while text.chars().next() == Some('(') {
-        let (node, new_text) = parse_game_tree(text)?;
+        let (node, new_text) = parse_game_tree(text, false)?;
         text = &new_text.trim();
         children.push(node);
     }
     if text.chars().next() == Some(';') {
-        let (node, new_text) = parse_node(text)?;
+        let (node, new_text) = parse_node(text, false)?;
         text = &new_text;
         children.push(node);
     }
 
-    Ok((SgfNode::new(props, children)?, text))
+    let node = SgfNode::new(props, children, is_root)
+        .map_err(|_| SgfParseError::ParseError(text.to_string()))?;
+    Ok((node, text))
 }
 
 fn parse_property(mut text: &str) -> Result<(SgfProp, &str), SgfParseError> {
