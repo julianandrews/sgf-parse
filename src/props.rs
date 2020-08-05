@@ -188,7 +188,7 @@ pub enum SgfProp {
     OW(i64),
     WL(f64),
     // Miscellaneous properties
-    // TODO: FG(nothing | num:simpletext)
+    FG(Option<(i64, SimpleText)>),
     PM(i64),
     VW(Vec<Point>),
     TB(Vec<Point>),
@@ -299,6 +299,7 @@ impl SgfProp {
             "OB" => Ok(SgfProp::OB(parse_single_value(&values)?)),
             "OW" => Ok(SgfProp::OW(parse_single_value(&values)?)),
             "WL" => Ok(SgfProp::WL(parse_single_value(&values)?)),
+            "FG" => Ok(SgfProp::FG(parse_figure(&values)?)),
             "PM" => {
                 let value = parse_single_value(&values)?;
                 if value < 1 || value > 2 {
@@ -390,6 +391,7 @@ impl SgfProp {
             SgfProp::OB(_) => "OB".to_string(),
             SgfProp::OW(_) => "OW".to_string(),
             SgfProp::WL(_) => "WL".to_string(),
+            SgfProp::FG(_) => "FG".to_string(),
             SgfProp::PM(_) => "PM".to_string(),
             SgfProp::VW(_) => "VW".to_string(),
             SgfProp::TB(_) => "TB".to_string(),
@@ -582,6 +584,17 @@ fn parse_labels(values: &Vec<String>) -> Result<Vec<(Point, SimpleText)>, SgfPar
     }
 
     Ok(labels)
+}
+
+fn parse_figure(values: &Vec<String>) -> Result<Option<(i64, SimpleText)>, SgfParseError> {
+    if values.len() == 0 || (values.len() == 1 && values[0] == "") {
+        return Ok(None);
+    }
+    if values.len() > 1 {
+        Err(SgfParseError::InvalidPropertyValue)?;
+    }
+
+    Ok(Some(parse_tuple(&values[0])?))
 }
 
 impl FromStr for Move {
