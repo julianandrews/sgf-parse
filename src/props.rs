@@ -145,7 +145,7 @@ pub enum SgfProp {
     AR(Vec<(Point, Point)>),
     CR(Vec<Point>),
     DD(Vec<Point>),
-    // TODO: LB(list of point:simpletext)
+    LB(Vec<(Point, SimpleText)>),
     LN(Vec<(Point, Point)>),
     MA(Vec<Point>),
     SL(Vec<Point>),
@@ -235,6 +235,7 @@ impl SgfProp {
             "AR" => Ok(SgfProp::AR(parse_list_composed_point(&values)?)),
             "CR" => Ok(SgfProp::CR(parse_list_point(&values)?)),
             "DD" => Ok(SgfProp::DD(parse_elist_point(&values)?)),
+            "LB" => Ok(SgfProp::LB(parse_labels(&values)?)),
             "LN" => Ok(SgfProp::LN(parse_list_composed_point(&values)?)),
             "MA" => Ok(SgfProp::MA(parse_list_point(&values)?)),
             "SL" => Ok(SgfProp::SL(parse_list_point(&values)?)),
@@ -350,6 +351,7 @@ impl SgfProp {
             SgfProp::AR(_) => "AR".to_string(),
             SgfProp::CR(_) => "CR".to_string(),
             SgfProp::DD(_) => "DD".to_string(),
+            SgfProp::LB(_) => "LB".to_string(),
             SgfProp::LN(_) => "LN".to_string(),
             SgfProp::MA(_) => "MA".to_string(),
             SgfProp::SL(_) => "SL".to_string(),
@@ -568,6 +570,18 @@ fn parse_size(values: &Vec<String>) -> Result<(u8, u8), SgfParseError> {
             .map_err(|_| SgfParseError::InvalidPropertyValue)?;
         Ok((size, size))
     }
+}
+
+fn parse_labels(values: &Vec<String>) -> Result<Vec<(Point, SimpleText)>, SgfParseError> {
+    let mut labels = vec![];
+    for value in values.iter() {
+        labels.push(parse_tuple(&value)?);
+    }
+    if labels.len() == 0 {
+        Err(SgfParseError::InvalidPropertyValue)?;
+    }
+
+    Ok(labels)
 }
 
 impl FromStr for Move {
