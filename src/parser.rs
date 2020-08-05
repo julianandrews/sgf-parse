@@ -144,3 +144,18 @@ fn parse_value(text: &str) -> Result<(String, &str), SgfParseError> {
 
     Ok((prop_value.iter().collect(), chars.as_str()))
 }
+
+#[cfg(test)]
+mod test {
+    use super::parse;
+
+    #[test]
+    pub fn test_example_sgf() {
+        let mut sgf_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        sgf_path.push("resources/test/ff4_ex.sgf");
+        let data = std::fs::read_to_string(sgf_path).unwrap();
+
+        let sgf_nodes = parse(&data).unwrap();
+        assert_eq!(sgf_nodes.len(), 2);
+    }
+}
