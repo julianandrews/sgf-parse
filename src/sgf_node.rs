@@ -114,6 +114,7 @@ impl IntoIterator for SgfNode {
 
 fn validate_node_props(props: &Vec<SgfProp>) -> Result<(bool, bool), SgfParseError> {
     let mut identifiers = HashSet::new();
+    let mut markup_points = HashSet::new();
     let mut setup_node = false;
     let mut move_node = false;
     let mut move_seen = false;
@@ -135,14 +136,24 @@ fn validate_node_props(props: &Vec<SgfProp>) -> Result<(bool, bool), SgfParseErr
                     Err(SgfParseError::InvalidNodeProps(props.clone()))?;
                 }
             }
-            SgfProp::DM(_) => exclusive_node_annotations += 1,
-            SgfProp::UC(_) => exclusive_node_annotations += 1,
-            SgfProp::GW(_) => exclusive_node_annotations += 1,
-            SgfProp::GB(_) => exclusive_node_annotations += 1,
-            SgfProp::BM(_) => move_annotation_count += 1,
-            SgfProp::DO => move_annotation_count += 1,
-            SgfProp::IT => move_annotation_count += 1,
-            SgfProp::TE(_) => move_annotation_count += 1,
+            SgfProp::CR(ps)
+            | SgfProp::MA(ps)
+            | SgfProp::SL(ps)
+            | SgfProp::SQ(ps)
+            | SgfProp::TR(ps) => {
+                for p in ps.iter() {
+                    if markup_points.contains(&p) {
+                        Err(SgfParseError::InvalidNodeProps(props.clone()))?;
+                    }
+                    markup_points.insert(p);
+                }
+            }
+            SgfProp::DM(_) | SgfProp::UC(_) | SgfProp::GW(_) | SgfProp::GB(_) => {
+                exclusive_node_annotations += 1
+            }
+            SgfProp::BM(_) | SgfProp::DO | SgfProp::IT | SgfProp::TE(_) => {
+                move_annotation_count += 1
+            }
             _ => {}
         }
         match prop.property_type() {
@@ -170,6 +181,5 @@ fn validate_node_props(props: &Vec<SgfProp>) -> Result<(bool, bool), SgfParseErr
     if exclusive_node_annotations > 1 {
         Err(SgfParseError::InvalidNodeProps(props.clone()))?;
     }
-    // TODO: Validate no more than one of CR, MA, SL, SQ, TR per point
     Ok((root_node, game_info_node))
 }

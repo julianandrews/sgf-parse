@@ -12,7 +12,7 @@ properties are parsed and preserved.
 ## Installation
 ```
 [dependencies]
-sgf-parse = "0.1.0"
+sgf-parse = "0.2.0"
 ```
 
 ## Contributing
