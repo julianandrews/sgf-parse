@@ -114,11 +114,11 @@ pub enum SgfProp {
     KO,
     MN(i64),
     W(Move),
-    // Setup Properties (illegal to place two colors on one point)
+    // Setup Properties
     AB(Vec<Point>),
     AE(Vec<Point>),
     AW(Vec<Point>),
-    // PL(color)
+    // TODO: PL(color) - setup property
     // Node Annotation properties
     C(Text),
     DM(Double),
@@ -128,30 +128,30 @@ pub enum SgfProp {
     N(SimpleText),
     UC(Double),
     V(f64),
-    // Move annotation properties (illegal without a move in the node)
+    // Move annotation properties
     BM(Double),
     DO,
     IT,
     TE(Double),
-    // Markup Properties (illegal to have more than one on a point)
-    // TODO: AR(list of point:point) - validate unique, distinct points
+    // Markup Properties
+    AR(Vec<(Point, Point)>),
     CR(Vec<Point>),
     DD(Vec<Point>),
     // TODO: LB(list of point:simpletext)
-    // TODO: LN(list of point:point) - validate unique, distinct points
+    LN(Vec<(Point, Point)>),
     MA(Vec<Point>),
     SL(Vec<Point>),
     SQ(Vec<Point>),
     TR(Vec<Point>),
     // Root Properties
-    // AP(simpletext:simpletext)
+    // TODO: AP(simpletext:simpletext) root property
     CA(SimpleText),
-    FF(i64), // range 1-4
-    GM(i64), // range 1-16, only handle Go = 1!
-    ST(i64), // range 0-3
+    FF(i64),
+    GM(i64),
+    ST(i64),
     SZ((u8, u8)),
     // Game info properties
-    HA(i64), // >=2, AB should be set within same node
+    HA(i64),
     KM(f64),
     AN(SimpleText),
     BR(SimpleText),
@@ -180,8 +180,8 @@ pub enum SgfProp {
     OW(i64),
     WL(f64),
     // Miscellaneous properties
-    // TODO: FG (nothing | num:simpletext)
-    PM(i64), // range 1-2
+    // TODO: FG(nothing | num:simpletext)
+    PM(i64),
     VW(Vec<Point>),
     TB(Vec<Point>),
     TW(Vec<Point>),
@@ -223,8 +223,10 @@ impl SgfProp {
             "IT" => verify_empty(&values).map(|()| Ok(SgfProp::IT))?,
             "BM" => Ok(SgfProp::BM(parse_single_value(&values)?)),
             "TE" => Ok(SgfProp::TE(parse_single_value(&values)?)),
+            "AR" => Ok(SgfProp::AR(parse_list_composed_point(&values)?)),
             "CR" => Ok(SgfProp::CR(parse_list_point(&values)?)),
             "DD" => Ok(SgfProp::DD(parse_elist_point(&values)?)),
+            "LN" => Ok(SgfProp::LN(parse_list_composed_point(&values)?)),
             "MA" => Ok(SgfProp::MA(parse_list_point(&values)?)),
             "SL" => Ok(SgfProp::SL(parse_list_point(&values)?)),
             "SQ" => Ok(SgfProp::SQ(parse_list_point(&values)?)),
@@ -334,8 +336,10 @@ impl SgfProp {
             SgfProp::IT => "IT".to_string(),
             SgfProp::BM(_) => "BM".to_string(),
             SgfProp::TE(_) => "TE".to_string(),
+            SgfProp::AR(_) => "AR".to_string(),
             SgfProp::CR(_) => "CR".to_string(),
             SgfProp::DD(_) => "DD".to_string(),
+            SgfProp::LN(_) => "LN".to_string(),
             SgfProp::MA(_) => "MA".to_string(),
             SgfProp::SL(_) => "SL".to_string(),
             SgfProp::SQ(_) => "SQ".to_string(),
@@ -502,6 +506,23 @@ fn parse_elist_point(values: &Vec<String>) -> Result<Vec<Point>, SgfParseError> 
     }
 
     Ok(points.into_iter().collect())
+}
+
+fn parse_list_composed_point(values: &Vec<String>) -> Result<Vec<(Point, Point)>, SgfParseError> {
+    let mut pairs = HashSet::new();
+    for value in values.iter() {
+        let parts: Vec<&str> = value.split(":").collect();
+        if parts.len() != 2 {
+            Err(SgfParseError::InvalidPropertyValue)?;
+        }
+        let pair = (parts[0].parse()?, parts[1].parse()?);
+        if pair.0 == pair.1 || pairs.contains(&pair) {
+            Err(SgfParseError::InvalidPropertyValue)?;
+        }
+        pairs.insert(pair);
+    }
+
+    Ok(pairs.into_iter().collect())
 }
 
 fn parse_size(values: &Vec<String>) -> Result<(u8, u8), SgfParseError> {
