@@ -2,24 +2,58 @@ use std::collections::HashSet;
 
 use super::SgfParseError;
 
+/// An SGF [Double](https://www.red-bean.com/sgf/sgf4.html#double) value.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Double {
     One,
     Two,
 }
 
+/// An SGF [Point](https://www.red-bean.com/sgf/go.html#types) value for the Game of Go.
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Point {
     pub x: u8,
     pub y: u8,
 }
 
+/// An SGF [Move](https://www.red-bean.com/sgf/go.html#types) value for the Game of Go.
+///
+/// Moves may either be a pass, or a `Point`
+///
+/// # Examples
+/// ```
+/// use sgf_parse::{parse, SgfProp, Move};
+///
+/// let node = parse("(;B[de])").unwrap().into_iter().next().unwrap();
+/// for prop in node.properties() {
+///     match prop {
+///         SgfProp::B(Move::Move(point)) => println!("B move at {:?}", point),
+///         _ => {}
+///     }
+/// }
+/// ```
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Move {
     Pass,
     Move(Point),
 }
 
+/// Encodes an SGF [Text](https://www.red-bean.com/sgf/sgf4.html#text) value.
+///
+/// Dereferences to an `&str`.
+///
+/// # Examples
+/// ```
+/// use sgf_parse::{parse, SgfProp, Text};
+///
+/// let node = parse("(;C[A comment])").unwrap().into_iter().next().unwrap();
+/// for prop in node.properties() {
+///     match prop {
+///         SgfProp::C(text) => println!("Found comment: '{}'", &text[..]),
+///         _ => {}
+///     }
+/// }
+/// ```
 #[derive(Clone, Debug)]
 pub struct Text(String);
 
@@ -31,6 +65,22 @@ impl std::ops::Deref for Text {
     }
 }
 
+/// Encodes an SGF [SimpleText](https://www.red-bean.com/sgf/sgf4.html#simpletext) value.
+///
+/// Dereferences to an `&str`. Should be displayed with line breaks converted to spaces.
+///
+/// # Examples
+/// ```
+/// use sgf_parse::{parse, SgfProp, SimpleText};
+///
+/// let node = parse("(;N[Node name])").unwrap().into_iter().next().unwrap();
+/// for prop in node.properties() {
+///     match prop {
+///         SgfProp::N(text) => println!("Node named: '{}'", text.replace("\n", " ")),
+///         _ => {}
+///     }
+/// }
+/// ```
 #[derive(Clone, Debug)]
 pub struct SimpleText(String);
 
@@ -42,6 +92,17 @@ impl std::ops::Deref for SimpleText {
     }
 }
 
+/// An SGF Property with identifier and value.
+///
+/// All [general properties](https://www.red-bean.com/sgf/properties.html) from the SGF
+/// specification and all [go specific properties](https://www.red-bean.com/sgf/go.html) will
+/// return the approprite enum instance with parsed data. Unrecognized properties, or properties
+/// from other games will return `Unknown(identifier, values)`.
+///
+/// # Examples
+/// ```
+/// // TODO: Add an example here!
+/// ```
 #[derive(Clone, Debug)]
 pub enum SgfProp {
     // Move Properties

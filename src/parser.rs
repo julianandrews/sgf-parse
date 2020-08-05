@@ -2,6 +2,22 @@ use super::errors::SgfParseError;
 use super::props::SgfProp;
 use super::sgf_node::SgfNode;
 
+/// Returns a Vector of the root SgfNodes parsed from the provided text.
+///
+/// Any `SgfNode` returned by this function should be valid according to the SGF specification.
+///
+/// # Examples
+/// ```
+/// use sgf_parse::parse;
+///
+/// // Prints the all the properties for the two root nodes in the SGF
+/// let sgf = "(;SZ[9]C[Some comment];B[de];W[fe])(;B[de];W[ff])";
+/// for node in parse(&sgf).unwrap().iter() {
+///     for prop in node.properties() {
+///         println!("{:?}", prop);
+///     }
+/// }
+/// ```
 pub fn parse(text: &str) -> Result<Vec<SgfNode>, SgfParseError> {
     let mut nodes: Vec<SgfNode> = vec![];
     let mut text = text.trim();

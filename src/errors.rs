@@ -1,3 +1,4 @@
+/// Error type for all sgf parsing errors.
 #[derive(Debug)]
 pub enum SgfParseError {
     InvalidGameTree(String),
