@@ -18,7 +18,7 @@ pub struct Point {
 
 /// An SGF [Move](https://www.red-bean.com/sgf/go.html#types) value for the Game of Go.
 ///
-/// Moves may either be a pass, or a `Point`
+/// Moves may either be a pass, or a [Point](struct.Point.html)
 ///
 /// # Examples
 /// ```
@@ -38,7 +38,7 @@ pub enum Move {
     Move(Point),
 }
 
-/// Encodes an SGF [Text](https://www.red-bean.com/sgf/sgf4.html#text) value.
+/// An SGF [Text](https://www.red-bean.com/sgf/sgf4.html#text) value.
 ///
 /// Dereferences to an `&str`.
 ///
@@ -65,7 +65,7 @@ impl std::ops::Deref for Text {
     }
 }
 
-/// Encodes an SGF [SimpleText](https://www.red-bean.com/sgf/sgf4.html#simpletext) value.
+/// An SGF [SimpleText](https://www.red-bean.com/sgf/sgf4.html#simpletext) value.
 ///
 /// Dereferences to an `&str`. Should be displayed with line breaks converted to spaces.
 ///
@@ -92,17 +92,21 @@ impl std::ops::Deref for SimpleText {
     }
 }
 
+/// An SGF [Property Type](https://www.red-bean.com/sgf/sgf4.html#2.2.1).
+pub enum PropertyType {
+    Move,
+    Setup,
+    Root,
+    GameInfo,
+    Inherit,
+}
+
 /// An SGF Property with identifier and value.
 ///
 /// All [general properties](https://www.red-bean.com/sgf/properties.html) from the SGF
 /// specification and all [go specific properties](https://www.red-bean.com/sgf/go.html) will
 /// return the approprite enum instance with parsed data. Unrecognized properties, or properties
 /// from other games will return `Unknown(identifier, values)`.
-///
-/// # Examples
-/// ```
-/// // TODO: Add an example here!
-/// ```
 #[derive(Clone, Debug)]
 pub enum SgfProp {
     // Move Properties
@@ -114,6 +118,7 @@ pub enum SgfProp {
     AB(Vec<Point>),
     AE(Vec<Point>),
     AW(Vec<Point>),
+    // PL(color)
     // Node Annotation properties
     C(Text),
     DM(Double),
@@ -184,8 +189,21 @@ pub enum SgfProp {
 }
 
 impl SgfProp {
-    pub fn new(ident: String, values: Vec<String>) -> Result<SgfProp, SgfParseError> {
-        match &ident[..] {
+    /// Returns a new property parsed from the provided identifier and values
+    ///
+    /// # Examples
+    /// ```
+    /// use sgf_parse::SgfProp;
+    ///
+    /// // SgfProp::B(Point{ x: 2, y: 3 }
+    /// let prop = SgfProp::new("B".to_string(), vec!["cd".to_string()]);
+    /// // SgfProp::AB(vec![Point{ x: 2, y: 3 }, Point { x: 3, y: 3 }])
+    /// let prop = SgfProp::new("AB".to_string(), vec!["cd".to_string(), "dd".to_string()]);
+    /// // SgfProp::Unknown("FOO", vec!["Text"])
+    /// let prop = SgfProp::new("FOO".to_string(), vec!["Text".to_string()]);
+    /// ```
+    pub fn new(identifier: String, values: Vec<String>) -> Result<SgfProp, SgfParseError> {
+        match &identifier[..] {
             "B" => Ok(SgfProp::B(parse_single_value(&values)?)),
             "KO" => verify_empty(&values).map(|()| Ok(SgfProp::KO))?,
             "MN" => Ok(SgfProp::MN(parse_single_value(&values)?)),
@@ -278,7 +296,152 @@ impl SgfProp {
             "VW" => Ok(SgfProp::VW(parse_elist_point(&values)?)),
             "TB" => Ok(SgfProp::TB(parse_elist_point(&values)?)),
             "TW" => Ok(SgfProp::TW(parse_elist_point(&values)?)),
-            _ => Ok(SgfProp::Unknown(ident, values)),
+            _ => Ok(SgfProp::Unknown(identifier, values)),
+        }
+    }
+
+    /// Returns a the identifier associated with the SgfProp.
+    ///
+    /// # Examples
+    /// ```
+    /// use sgf_parse::SgfProp;
+    ///
+    /// // Prints "W"
+    /// let prop = SgfProp::new("W".to_string(), vec!["de".to_string()]).unwrap();
+    /// println!("Identifier: {}", prop.identifier());
+    /// // Prints "FOO"
+    /// let prop = SgfProp::new("FOO".to_string(), vec!["de".to_string()]).unwrap();
+    /// println!("Identifier: {}", prop.identifier());
+    /// ```
+    pub fn identifier(&self) -> String {
+        match self {
+            SgfProp::B(_) => "B".to_string(),
+            SgfProp::KO => "KO".to_string(),
+            SgfProp::MN(_) => "MN".to_string(),
+            SgfProp::W(_) => "W".to_string(),
+            SgfProp::AB(_) => "AB".to_string(),
+            SgfProp::AE(_) => "AE".to_string(),
+            SgfProp::AW(_) => "AW".to_string(),
+            SgfProp::C(_) => "C".to_string(),
+            SgfProp::DM(_) => "DM".to_string(),
+            SgfProp::GB(_) => "GB".to_string(),
+            SgfProp::GW(_) => "GW".to_string(),
+            SgfProp::HO(_) => "HO".to_string(),
+            SgfProp::N(_) => "N".to_string(),
+            SgfProp::UC(_) => "UC".to_string(),
+            SgfProp::V(_) => "V".to_string(),
+            SgfProp::DO => "DO".to_string(),
+            SgfProp::IT => "IT".to_string(),
+            SgfProp::BM(_) => "BM".to_string(),
+            SgfProp::TE(_) => "TE".to_string(),
+            SgfProp::CR(_) => "CR".to_string(),
+            SgfProp::DD(_) => "DD".to_string(),
+            SgfProp::MA(_) => "MA".to_string(),
+            SgfProp::SL(_) => "SL".to_string(),
+            SgfProp::SQ(_) => "SQ".to_string(),
+            SgfProp::TR(_) => "TR".to_string(),
+            SgfProp::CA(_) => "CA".to_string(),
+            SgfProp::FF(_) => "FF".to_string(),
+            SgfProp::GM(_) => "GM".to_string(),
+            SgfProp::ST(_) => "ST".to_string(),
+            SgfProp::SZ(_) => "SZ".to_string(),
+            SgfProp::HA(_) => "HA".to_string(),
+            SgfProp::KM(_) => "KM".to_string(),
+            SgfProp::AN(_) => "AN".to_string(),
+            SgfProp::BR(_) => "BR".to_string(),
+            SgfProp::BT(_) => "BT".to_string(),
+            SgfProp::CP(_) => "CP".to_string(),
+            SgfProp::DT(_) => "DT".to_string(),
+            SgfProp::EV(_) => "EV".to_string(),
+            SgfProp::GN(_) => "GN".to_string(),
+            SgfProp::GC(_) => "GC".to_string(),
+            SgfProp::ON(_) => "ON".to_string(),
+            SgfProp::OT(_) => "OT".to_string(),
+            SgfProp::PB(_) => "PB".to_string(),
+            SgfProp::PC(_) => "PC".to_string(),
+            SgfProp::PW(_) => "PW".to_string(),
+            SgfProp::RE(_) => "RE".to_string(),
+            SgfProp::RO(_) => "RO".to_string(),
+            SgfProp::RU(_) => "RU".to_string(),
+            SgfProp::SO(_) => "SO".to_string(),
+            SgfProp::TM(_) => "TM".to_string(),
+            SgfProp::US(_) => "US".to_string(),
+            SgfProp::WR(_) => "WR".to_string(),
+            SgfProp::WT(_) => "WT".to_string(),
+            SgfProp::BL(_) => "BL".to_string(),
+            SgfProp::OB(_) => "OB".to_string(),
+            SgfProp::OW(_) => "OW".to_string(),
+            SgfProp::WL(_) => "WL".to_string(),
+            SgfProp::PM(_) => "PM".to_string(),
+            SgfProp::VW(_) => "VW".to_string(),
+            SgfProp::TB(_) => "TB".to_string(),
+            SgfProp::TW(_) => "TW".to_string(),
+            SgfProp::Unknown(identifier, _) => identifier.to_string(),
+        }
+    }
+
+    /// Returns the [PropertyType](enum.PropertyType.html) associated with the property.
+    ///
+    /// # Examples
+    /// ```
+    /// use sgf_parse::SgfProp;
+    ///
+    /// // Prints "W"
+    /// let prop = SgfProp::new("W".to_string(), vec!["de".to_string()]).unwrap();
+    /// println!("Identifier: {}", prop.identifier());
+    /// // Prints "FOO"
+    /// let prop = SgfProp::new("FOO".to_string(), vec!["de".to_string()]).unwrap();
+    /// println!("Identifier: {}", prop.identifier());
+    /// ```
+    pub fn property_type(&self) -> Option<PropertyType> {
+        match &self {
+            SgfProp::B(_) => Some(PropertyType::Move),
+            SgfProp::KO => Some(PropertyType::Move),
+            SgfProp::MN(_) => Some(PropertyType::Move),
+            SgfProp::W(_) => Some(PropertyType::Move),
+            SgfProp::AB(_) => Some(PropertyType::Setup),
+            SgfProp::AE(_) => Some(PropertyType::Setup),
+            SgfProp::AW(_) => Some(PropertyType::Setup),
+            SgfProp::DO => Some(PropertyType::Move),
+            SgfProp::IT => Some(PropertyType::Move),
+            SgfProp::BM(_) => Some(PropertyType::Move),
+            SgfProp::TE(_) => Some(PropertyType::Move),
+            SgfProp::DD(_) => Some(PropertyType::Inherit),
+            SgfProp::CA(_) => Some(PropertyType::Root),
+            SgfProp::FF(_) => Some(PropertyType::Root),
+            SgfProp::GM(_) => Some(PropertyType::Root),
+            SgfProp::ST(_) => Some(PropertyType::Root),
+            SgfProp::SZ(_) => Some(PropertyType::Root),
+            SgfProp::HA(_) => Some(PropertyType::GameInfo),
+            SgfProp::KM(_) => Some(PropertyType::GameInfo),
+            SgfProp::AN(_) => Some(PropertyType::GameInfo),
+            SgfProp::BR(_) => Some(PropertyType::GameInfo),
+            SgfProp::BT(_) => Some(PropertyType::GameInfo),
+            SgfProp::CP(_) => Some(PropertyType::GameInfo),
+            SgfProp::DT(_) => Some(PropertyType::GameInfo),
+            SgfProp::EV(_) => Some(PropertyType::GameInfo),
+            SgfProp::GN(_) => Some(PropertyType::GameInfo),
+            SgfProp::GC(_) => Some(PropertyType::GameInfo),
+            SgfProp::ON(_) => Some(PropertyType::GameInfo),
+            SgfProp::OT(_) => Some(PropertyType::GameInfo),
+            SgfProp::PB(_) => Some(PropertyType::GameInfo),
+            SgfProp::PC(_) => Some(PropertyType::GameInfo),
+            SgfProp::PW(_) => Some(PropertyType::GameInfo),
+            SgfProp::RE(_) => Some(PropertyType::GameInfo),
+            SgfProp::RO(_) => Some(PropertyType::GameInfo),
+            SgfProp::RU(_) => Some(PropertyType::GameInfo),
+            SgfProp::SO(_) => Some(PropertyType::GameInfo),
+            SgfProp::TM(_) => Some(PropertyType::GameInfo),
+            SgfProp::US(_) => Some(PropertyType::GameInfo),
+            SgfProp::WR(_) => Some(PropertyType::GameInfo),
+            SgfProp::WT(_) => Some(PropertyType::GameInfo),
+            SgfProp::BL(_) => Some(PropertyType::Move),
+            SgfProp::OB(_) => Some(PropertyType::Move),
+            SgfProp::OW(_) => Some(PropertyType::Move),
+            SgfProp::WL(_) => Some(PropertyType::Move),
+            SgfProp::PM(_) => Some(PropertyType::Inherit),
+            SgfProp::VW(_) => Some(PropertyType::Inherit),
+            _ => None,
         }
     }
 }

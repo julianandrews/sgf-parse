@@ -4,7 +4,8 @@ use super::sgf_node::SgfNode;
 
 /// Returns a Vector of the root SgfNodes parsed from the provided text.
 ///
-/// Any `SgfNode` returned by this function should be valid according to the SGF specification.
+/// Any [SgfNode](struct.SgfNode.html) returned by this function should be valid according to the SGF
+/// specification.
 ///
 /// # Examples
 /// ```
@@ -27,22 +28,20 @@ pub fn parse(text: &str) -> Result<Vec<SgfNode>, SgfParseError> {
         text = new_text.trim();
     }
     if nodes.is_empty() {
-        Err(SgfParseError::InvalidGameTree(text.to_string()))?;
+        Err(SgfParseError::ParseError(text.to_string()))?;
     }
-
-    // TODO: validate root properties
     Ok(nodes)
 }
 
 fn parse_game_tree(mut text: &str) -> Result<(SgfNode, &str), SgfParseError> {
     if text.chars().next() != Some('(') {
-        Err(SgfParseError::InvalidGameTree(text.to_string()))?;
+        Err(SgfParseError::ParseError(text.to_string()))?;
     }
     text = &text[1..].trim();
     let (node, new_text) = parse_node(text)?;
     text = &new_text.trim();
     if text.chars().next() != Some(')') {
-        Err(SgfParseError::InvalidGameTree(text.to_string()))?;
+        Err(SgfParseError::ParseError(text.to_string()))?;
     }
 
     Ok((node, &text[1..]))
@@ -50,7 +49,7 @@ fn parse_game_tree(mut text: &str) -> Result<(SgfNode, &str), SgfParseError> {
 
 fn parse_node(mut text: &str) -> Result<(SgfNode, &str), SgfParseError> {
     if text.chars().next() != Some(';') {
-        Err(SgfParseError::InvalidNode(text.to_string()))?;
+        Err(SgfParseError::ParseError(text.to_string()))?;
     }
     text = &text[1..].trim();
 
@@ -60,7 +59,7 @@ fn parse_node(mut text: &str) -> Result<(SgfNode, &str), SgfParseError> {
             break;
         }
         let (prop, new_text) =
-            parse_property(text).map_err(|_| SgfParseError::InvalidProperty(text.to_string()))?;
+            parse_property(text).map_err(|_| SgfParseError::ParseError(text.to_string()))?;
         text = new_text;
         props.push(prop);
     }
@@ -78,13 +77,7 @@ fn parse_node(mut text: &str) -> Result<(SgfNode, &str), SgfParseError> {
         children.push(node);
     }
 
-    // TODO: Validate no mix of move/setup properties.
-    // TODO: Validate no mix of B & W props (apparently multiple of one is fine).
-    // TODO: Validate no move annotations without move.
-    // TODO: Validate no more than one markup property per point.
-    // TODO: Validate that a KO property has a B or W in the same node.
-    // TODO: Validate DM, UC, GW, GB not mixed.
-    Ok((SgfNode::new(props, children), text))
+    Ok((SgfNode::new(props, children)?, text))
 }
 
 fn parse_property(mut text: &str) -> Result<(SgfProp, &str), SgfParseError> {
@@ -105,7 +98,7 @@ fn parse_prop_ident(mut text: &str) -> Result<(String, &str), SgfParseError> {
                 prop_ident.push(c);
                 text = &text[1..];
             }
-            _ => Err(SgfParseError::InvalidProperty(text.to_string()))?,
+            _ => Err(SgfParseError::ParseError(text.to_string()))?,
         }
     }
 
@@ -143,7 +136,7 @@ fn parse_value(text: &str) -> Result<(String, &str), SgfParseError> {
                 escaped = false;
                 prop_value.push(c);
             }
-            None => Err(SgfParseError::InvalidProperty(text.to_string()))?,
+            None => Err(SgfParseError::ParseError(text.to_string()))?,
         }
     }
 
