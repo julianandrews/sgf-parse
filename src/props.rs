@@ -528,8 +528,8 @@ fn parse_elist_point(values: &Vec<String>) -> Result<Vec<Point>, SgfParseError> 
             if upper_left.x > lower_right.x || upper_left.y > lower_right.y {
                 Err(SgfParseError::InvalidPropertyValue)?;
             }
-            for x in upper_left.x..lower_right.x {
-                for y in upper_left.y..lower_right.y {
+            for x in upper_left.x..=lower_right.x {
+                for y in upper_left.y..=lower_right.y {
                     let point = Point { x: x, y: y };
                     if points.contains(&point) {
                         Err(SgfParseError::InvalidPropertyValue)?;
