@@ -701,3 +701,59 @@ impl FromStr for Color {
         }
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::collections::HashSet;
+
+    #[test]
+    pub fn test_parse_text() {
+        let text = "Comment with\trandom whitespace\nescaped \\] and \\\\ and a soft \\\nlinebreak";
+        let expected = "Comment with random whitespace\nescaped ] and \\ and a soft linebreak";
+
+        assert_eq!(parse_text(&text), expected);
+    }
+
+    #[test]
+    pub fn test_parse_simple_text() {
+        let text =
+            "Comment with\trandom\r\nwhitespace\n\rescaped \\] and \\\\ and\na soft \\\nlinebreak";
+        let expected = "Comment with random whitespace escaped ] and \\ and a soft linebreak";
+
+        assert_eq!(parse_simple_text(&text), expected);
+    }
+
+    #[test]
+    pub fn test_parse_list_point() {
+        let values = vec!["pq:ss".to_string(), "so".to_string(), "lr:ns".to_string()];
+        let expected: HashSet<_> = vec![
+            (15, 16),
+            (16, 16),
+            (17, 16),
+            (18, 16),
+            (15, 17),
+            (16, 17),
+            (17, 17),
+            (18, 17),
+            (15, 18),
+            (16, 18),
+            (17, 18),
+            (18, 18),
+            (18, 14),
+            (11, 17),
+            (12, 17),
+            (13, 17),
+            (11, 18),
+            (12, 18),
+            (13, 18),
+        ]
+        .into_iter()
+        .map(|(x, y)| Point { x: x, y: y })
+        .collect();
+
+        let result: HashSet<_> = parse_list_point(&values).unwrap().into_iter().collect();
+
+        assert_eq!(result, expected);
+    }
+}
