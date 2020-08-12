@@ -46,60 +46,6 @@ pub enum Move {
     Move(Point),
 }
 
-/// An SGF [Text](https://www.red-bean.com/sgf/sgf4.html#text) value.
-///
-/// Dereferences to an `&str`.
-///
-/// # Examples
-/// ```
-/// use sgf_parse::{parse, SgfProp, Text};
-///
-/// let node = parse("(;C[A comment])").unwrap().into_iter().next().unwrap();
-/// for prop in node.properties() {
-///     match prop {
-///         SgfProp::C(text) => println!("Found comment: '{}'", &text[..]),
-///         _ => {}
-///     }
-/// }
-/// ```
-#[derive(Clone, Debug)]
-pub struct Text(String);
-
-impl std::ops::Deref for Text {
-    type Target = str;
-
-    fn deref(&self) -> &str {
-        &self.0
-    }
-}
-
-/// An SGF [SimpleText](https://www.red-bean.com/sgf/sgf4.html#simpletext) value.
-///
-/// Dereferences to an `&str`. Should be displayed with line breaks converted to spaces.
-///
-/// # Examples
-/// ```
-/// use sgf_parse::{parse, SgfProp, SimpleText};
-///
-/// let node = parse("(;N[Node name])").unwrap().into_iter().next().unwrap();
-/// for prop in node.properties() {
-///     match prop {
-///         SgfProp::N(text) => println!("Node named: '{}'", text.replace("\n", " ")),
-///         _ => {}
-///     }
-/// }
-/// ```
-#[derive(Clone, Debug)]
-pub struct SimpleText(String);
-
-impl std::ops::Deref for SimpleText {
-    type Target = str;
-
-    fn deref(&self) -> &str {
-        &self.0
-    }
-}
-
 /// An SGF [Property Type](https://www.red-bean.com/sgf/sgf4.html#2.2.1).
 pub enum PropertyType {
     Move,
@@ -115,6 +61,22 @@ pub enum PropertyType {
 /// specification and all [go specific properties](https://www.red-bean.com/sgf/go.html) will
 /// return the approprite enum instance with parsed data. Unrecognized properties, or properties
 /// from other games will return `Unknown(identifier, values)`.
+///
+/// See [Property Value Types](https://www.red-bean.com/sgf/sgf4.html#types) for a list of types
+/// recognized by SGF. For parsing purposes the following mappings are used:
+/// * 'Number' => [i64](https://doc.rust-lang.org/std/primitive.i64.html)
+/// * 'Real' => [f64](https://doc.rust-lang.org/std/primitive.f64.html)
+/// * 'Double' => [Double](enum.Double.html)
+/// * 'Color' => [Color](enum.Color.html)
+/// * 'SimpleText' => [String](https://doc.rust-lang.org/std/string/struct.String.html)
+///     (formatted and escaped as [here](https://www.red-bean.com/sgf/sgf4.html#text))
+/// * 'Text' => [String](https://doc.rust-lang.org/std/string/struct.String.html)
+///     (formatted and escaped as [here](https://www.red-bean.com/sgf/sgf4.html#simpletext))
+/// * 'Point' => [Point](struct.Point.html)
+/// * 'Stone' => [Point](struct.Point.html)
+/// * 'Move' => [Move](enum.Move.html)
+/// * 'List' => [Vec](https://doc.rust-lang.org/std/vec/struct.Vec.html)
+/// * 'Compose' => a [tuple](https://doc.rust-lang.org/std/primitive.tuple.html) of the composed values
 #[derive(Clone, Debug)]
 pub enum SgfProp {
     // Move Properties
@@ -128,12 +90,12 @@ pub enum SgfProp {
     AW(Vec<Point>),
     PL(Color),
     // Node Annotation properties
-    C(Text),
+    C(String),
     DM(Double),
     GB(Double),
     GW(Double),
     HO(Double),
-    N(SimpleText),
+    N(String),
     UC(Double),
     V(f64),
     // Move annotation properties
@@ -145,15 +107,15 @@ pub enum SgfProp {
     AR(Vec<(Point, Point)>),
     CR(Vec<Point>),
     DD(Vec<Point>),
-    LB(Vec<(Point, SimpleText)>),
+    LB(Vec<(Point, String)>),
     LN(Vec<(Point, Point)>),
     MA(Vec<Point>),
     SL(Vec<Point>),
     SQ(Vec<Point>),
     TR(Vec<Point>),
     // Root Properties
-    AP((SimpleText, SimpleText)),
-    CA(SimpleText),
+    AP((String, String)),
+    CA(String),
     FF(i64),
     GM(i64),
     ST(i64),
@@ -161,34 +123,34 @@ pub enum SgfProp {
     // Game info properties
     HA(i64),
     KM(f64),
-    AN(SimpleText),
-    BR(SimpleText),
-    BT(SimpleText),
-    CP(SimpleText),
-    DT(SimpleText),
-    EV(SimpleText),
-    GN(SimpleText),
-    GC(Text),
-    ON(SimpleText),
-    OT(SimpleText),
-    PB(SimpleText),
-    PC(SimpleText),
-    PW(SimpleText),
-    RE(SimpleText),
-    RO(SimpleText),
-    RU(SimpleText),
-    SO(SimpleText),
+    AN(String),
+    BR(String),
+    BT(String),
+    CP(String),
+    DT(String),
+    EV(String),
+    GN(String),
+    GC(String),
+    ON(String),
+    OT(String),
+    PB(String),
+    PC(String),
+    PW(String),
+    RE(String),
+    RO(String),
+    RU(String),
+    SO(String),
     TM(f64),
-    US(SimpleText),
-    WR(SimpleText),
-    WT(SimpleText),
+    US(String),
+    WR(String),
+    WT(String),
     // Timing Properties
     BL(f64),
     OB(i64),
     OW(i64),
     WL(f64),
     // Miscellaneous properties
-    FG(Option<(i64, SimpleText)>),
+    FG(Option<(i64, String)>),
     PM(i64),
     VW(Vec<Point>),
     TB(Vec<Point>),
@@ -220,12 +182,12 @@ impl SgfProp {
             "AE" => Ok(SgfProp::AE(parse_list_point(&values)?)),
             "AW" => Ok(SgfProp::AW(parse_list_point(&values)?)),
             "PL" => Ok(SgfProp::PL(parse_single_value(&values)?)),
-            "C" => Ok(SgfProp::C(parse_single_value(&values)?)),
+            "C" => Ok(SgfProp::C(parse_single_text_value(&values)?)),
             "DM" => Ok(SgfProp::DM(parse_single_value(&values)?)),
             "GB" => Ok(SgfProp::GB(parse_single_value(&values)?)),
             "GW" => Ok(SgfProp::GW(parse_single_value(&values)?)),
             "HO" => Ok(SgfProp::HO(parse_single_value(&values)?)),
-            "N" => Ok(SgfProp::N(parse_single_value(&values)?)),
+            "N" => Ok(SgfProp::N(parse_single_simple_text_value(&values)?)),
             "UC" => Ok(SgfProp::UC(parse_single_value(&values)?)),
             "V" => Ok(SgfProp::V(parse_single_value(&values)?)),
             "DO" => verify_empty(&values).map(|()| Ok(SgfProp::DO))?,
@@ -241,8 +203,8 @@ impl SgfProp {
             "SL" => Ok(SgfProp::SL(parse_list_point(&values)?)),
             "SQ" => Ok(SgfProp::SQ(parse_list_point(&values)?)),
             "TR" => Ok(SgfProp::TR(parse_list_point(&values)?)),
-            "AP" => Ok(SgfProp::AP(parse_single_tuple(&values)?)),
-            "CA" => Ok(SgfProp::CA(parse_single_value(&values)?)),
+            "AP" => Ok(SgfProp::AP(parse_application(&values)?)),
+            "CA" => Ok(SgfProp::CA(parse_single_simple_text_value(&values)?)),
             "FF" => {
                 let value = parse_single_value(&values)?;
                 if value < 0 || value > 4 {
@@ -274,27 +236,27 @@ impl SgfProp {
                 Ok(SgfProp::HA(value))
             }
             "KM" => Ok(SgfProp::KM(parse_single_value(&values)?)),
-            "AN" => Ok(SgfProp::AN(parse_single_value(&values)?)),
-            "BR" => Ok(SgfProp::BR(parse_single_value(&values)?)),
-            "BT" => Ok(SgfProp::BT(parse_single_value(&values)?)),
-            "CP" => Ok(SgfProp::CP(parse_single_value(&values)?)),
-            "DT" => Ok(SgfProp::DT(parse_single_value(&values)?)),
-            "EV" => Ok(SgfProp::EV(parse_single_value(&values)?)),
-            "GN" => Ok(SgfProp::GN(parse_single_value(&values)?)),
-            "GC" => Ok(SgfProp::GC(parse_single_value(&values)?)),
-            "ON" => Ok(SgfProp::ON(parse_single_value(&values)?)),
-            "OT" => Ok(SgfProp::OT(parse_single_value(&values)?)),
-            "PB" => Ok(SgfProp::PB(parse_single_value(&values)?)),
-            "PC" => Ok(SgfProp::PC(parse_single_value(&values)?)),
-            "PW" => Ok(SgfProp::PW(parse_single_value(&values)?)),
-            "RE" => Ok(SgfProp::RE(parse_single_value(&values)?)),
-            "RO" => Ok(SgfProp::RO(parse_single_value(&values)?)),
-            "RU" => Ok(SgfProp::RU(parse_single_value(&values)?)),
-            "SO" => Ok(SgfProp::SO(parse_single_value(&values)?)),
+            "AN" => Ok(SgfProp::AN(parse_single_simple_text_value(&values)?)),
+            "BR" => Ok(SgfProp::BR(parse_single_simple_text_value(&values)?)),
+            "BT" => Ok(SgfProp::BT(parse_single_simple_text_value(&values)?)),
+            "CP" => Ok(SgfProp::CP(parse_single_simple_text_value(&values)?)),
+            "DT" => Ok(SgfProp::DT(parse_single_simple_text_value(&values)?)),
+            "EV" => Ok(SgfProp::EV(parse_single_simple_text_value(&values)?)),
+            "GN" => Ok(SgfProp::GN(parse_single_simple_text_value(&values)?)),
+            "GC" => Ok(SgfProp::GC(parse_single_text_value(&values)?)),
+            "ON" => Ok(SgfProp::ON(parse_single_simple_text_value(&values)?)),
+            "OT" => Ok(SgfProp::OT(parse_single_simple_text_value(&values)?)),
+            "PB" => Ok(SgfProp::PB(parse_single_simple_text_value(&values)?)),
+            "PC" => Ok(SgfProp::PC(parse_single_simple_text_value(&values)?)),
+            "PW" => Ok(SgfProp::PW(parse_single_simple_text_value(&values)?)),
+            "RE" => Ok(SgfProp::RE(parse_single_simple_text_value(&values)?)),
+            "RO" => Ok(SgfProp::RO(parse_single_simple_text_value(&values)?)),
+            "RU" => Ok(SgfProp::RU(parse_single_simple_text_value(&values)?)),
+            "SO" => Ok(SgfProp::SO(parse_single_simple_text_value(&values)?)),
             "TM" => Ok(SgfProp::TM(parse_single_value(&values)?)),
-            "US" => Ok(SgfProp::US(parse_single_value(&values)?)),
-            "WR" => Ok(SgfProp::WR(parse_single_value(&values)?)),
-            "WT" => Ok(SgfProp::WT(parse_single_value(&values)?)),
+            "US" => Ok(SgfProp::US(parse_single_simple_text_value(&values)?)),
+            "WR" => Ok(SgfProp::WR(parse_single_simple_text_value(&values)?)),
+            "WT" => Ok(SgfProp::WT(parse_single_simple_text_value(&values)?)),
             "BL" => Ok(SgfProp::BL(parse_single_value(&values)?)),
             "OB" => Ok(SgfProp::OB(parse_single_value(&values)?)),
             "OW" => Ok(SgfProp::OW(parse_single_value(&values)?)),
@@ -484,6 +446,71 @@ fn parse_single_value<T: FromStr>(values: &Vec<String>) -> Result<T, SgfParseErr
         .map_err(|_| SgfParseError::InvalidPropertyValue)
 }
 
+fn parse_single_text_value(values: &Vec<String>) -> Result<String, SgfParseError> {
+    if values.len() != 1 {
+        Err(SgfParseError::InvalidPropertyValue)?;
+    }
+    Ok(parse_text(&values[0]))
+}
+
+fn parse_text(s: &str) -> String {
+    // See https://www.red-bean.com/sgf/sgf4.html#text
+    let mut output = vec![];
+    let chars: Vec<char> = s.chars().collect();
+    let mut i = 0;
+    while i < chars.len() {
+        let c = chars[i];
+        if c == '\\' && i + 1 < chars.len() {
+            i += 1;
+            let c = chars[i];
+
+            // Remove soft line breaks
+            if c == '\n' {
+                if i + 1 < chars.len() && chars[i + 1] == '\r' {
+                    i += 1;
+                }
+            } else if c == '\r' {
+                if i + 1 < chars.len() && chars[i + 1] == '\n' {
+                    i += 1;
+                }
+            } else {
+                // Push any other literal char following '\'
+                output.push(c);
+            }
+        } else if c.is_whitespace() && c != '\r' && c != '\n' {
+            if i + 1 < chars.len() {
+                let next = chars[i + 1];
+                // Treat \r\n or \n\r as a single linebreak
+                if (c == '\n' && next == '\r') || (c == '\r' && next == '\n') {
+                    i += 1;
+                }
+            }
+            // Replace whitespace with ' '
+            output.push(' ');
+        } else {
+            output.push(c);
+        }
+        i += 1;
+    }
+
+    output.into_iter().collect()
+}
+
+fn parse_single_simple_text_value(values: &Vec<String>) -> Result<String, SgfParseError> {
+    if values.len() != 1 {
+        Err(SgfParseError::InvalidPropertyValue)?;
+    }
+    Ok(parse_simple_text(&values[0]))
+}
+
+fn parse_simple_text(s: &str) -> String {
+    parse_text(s)
+        .replace("\r\n", " ")
+        .replace("\n\r", " ")
+        .replace("\n", " ")
+        .replace("\r", " ")
+}
+
 fn parse_list_point(values: &Vec<String>) -> Result<Vec<Point>, SgfParseError> {
     let points = parse_elist_point(values)?;
     if points.is_empty() {
@@ -535,28 +562,23 @@ fn parse_list_composed_point(values: &Vec<String>) -> Result<Vec<(Point, Point)>
     Ok(pairs.into_iter().collect())
 }
 
-fn parse_tuple<T1: FromStr, T2: FromStr>(value: &str) -> Result<(T1, T2), SgfParseError> {
+fn split_compose(value: &str) -> Result<(&str, &str), SgfParseError> {
     let parts: Vec<&str> = value.split(":").collect();
     if parts.len() != 2 {
         Err(SgfParseError::InvalidPropertyValue)?;
     }
-    Ok((
-        parts[0]
-            .parse()
-            .map_err(|_| SgfParseError::InvalidPropertyValue)?,
-        parts[1]
-            .parse()
-            .map_err(|_| SgfParseError::InvalidPropertyValue)?,
-    ))
+
+    Ok((parts[0], parts[1]))
 }
 
-fn parse_single_tuple<T1: FromStr, T2: FromStr>(
-    values: &Vec<String>,
-) -> Result<(T1, T2), SgfParseError> {
-    if values.len() != 1 {
-        Err(SgfParseError::InvalidPropertyValue)?;
-    }
-    parse_tuple(&values[0])
+fn parse_tuple<T1: FromStr, T2: FromStr>(value: &str) -> Result<(T1, T2), SgfParseError> {
+    let (s1, s2) = split_compose(value)?;
+    Ok((
+        s1.parse()
+            .map_err(|_| SgfParseError::InvalidPropertyValue)?,
+        s2.parse()
+            .map_err(|_| SgfParseError::InvalidPropertyValue)?,
+    ))
 }
 
 fn parse_size(values: &Vec<String>) -> Result<(u8, u8), SgfParseError> {
@@ -574,10 +596,15 @@ fn parse_size(values: &Vec<String>) -> Result<(u8, u8), SgfParseError> {
     }
 }
 
-fn parse_labels(values: &Vec<String>) -> Result<Vec<(Point, SimpleText)>, SgfParseError> {
+fn parse_labels(values: &Vec<String>) -> Result<Vec<(Point, String)>, SgfParseError> {
     let mut labels = vec![];
     for value in values.iter() {
-        labels.push(parse_tuple(&value)?);
+        let (s1, s2) = split_compose(&value)?;
+        labels.push((
+            s1.parse()
+                .map_err(|_| SgfParseError::InvalidPropertyValue)?,
+            parse_simple_text(s2),
+        ));
     }
     if labels.len() == 0 {
         Err(SgfParseError::InvalidPropertyValue)?;
@@ -586,15 +613,28 @@ fn parse_labels(values: &Vec<String>) -> Result<Vec<(Point, SimpleText)>, SgfPar
     Ok(labels)
 }
 
-fn parse_figure(values: &Vec<String>) -> Result<Option<(i64, SimpleText)>, SgfParseError> {
+fn parse_figure(values: &Vec<String>) -> Result<Option<(i64, String)>, SgfParseError> {
     if values.len() == 0 || (values.len() == 1 && values[0] == "") {
         return Ok(None);
     }
     if values.len() > 1 {
         Err(SgfParseError::InvalidPropertyValue)?;
     }
+    let (s1, s2) = split_compose(&values[0])?;
 
-    Ok(Some(parse_tuple(&values[0])?))
+    Ok(Some((
+        s1.parse()
+            .map_err(|_| SgfParseError::InvalidPropertyValue)?,
+        parse_simple_text(s2),
+    )))
+}
+
+fn parse_application(values: &Vec<String>) -> Result<(String, String), SgfParseError> {
+    if values.len() != 1 {
+        Err(SgfParseError::InvalidPropertyValue)?;
+    }
+    let (s1, s2) = split_compose(&values[0])?;
+    Ok((parse_simple_text(s1), parse_simple_text(s2)))
 }
 
 impl FromStr for Move {
@@ -631,22 +671,6 @@ impl FromStr for Point {
             x: map_char(chars[0])?,
             y: map_char(chars[1])?,
         })
-    }
-}
-
-impl FromStr for Text {
-    type Err = SgfParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Text(s.to_string()))
-    }
-}
-
-impl FromStr for SimpleText {
-    type Err = SgfParseError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(SimpleText(s.to_string()))
     }
 }
 

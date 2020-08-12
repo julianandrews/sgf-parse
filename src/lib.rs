@@ -11,5 +11,5 @@ mod props;
 
 pub use errors::SgfParseError;
 pub use parser::parse;
-pub use props::{SgfProp, Double, Point, Move, Text, SimpleText, PropertyType};
+pub use props::{SgfProp, Color, Double, Point, Move, PropertyType};
 pub use sgf_node::SgfNode;
