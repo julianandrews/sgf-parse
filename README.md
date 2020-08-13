@@ -2,7 +2,7 @@
 A library for parsing [SGF FF\[4\]](https://www.red-bean.com/sgf/sgf4.html)
 files in Rust.
 
-`sgf-parse` provides a reliable but simple structured standard-compliate
+`sgf-parse` provides a reliable but simple structured, standard-compliant
 interface for reading `.sgf` files. For all standard SGF data types, properties
 are validated and parsed into appropriate native Rust types. Non-standard
 properties are parsed and preserved.
@@ -10,10 +10,7 @@ properties are parsed and preserved.
 [Documentation](https://docs.rs/sgf-parse)
 
 ## Installation
-```
-[dependencies]
-sgf-parse = "0.2.1"
-```
+Find `sgf-parse` on [crates.io](https://crates.io/crates/sgf-parse)
 
 ## Contributing
 Pull requests are welcome. For major changes, please open an issue first to
