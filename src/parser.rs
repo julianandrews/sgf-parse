@@ -147,15 +147,59 @@ fn parse_value(text: &str) -> Result<(String, &str), SgfParseError> {
 
 #[cfg(test)]
 mod test {
-    use super::parse;
+    use super::*;
 
-    #[test]
-    pub fn test_example_sgf() {
+    fn load_test_sgf() -> Result<Vec<SgfNode>, Box<dyn std::error::Error>> {
+        // See https://www.red-bean.com/sgf/examples/
         let mut sgf_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         sgf_path.push("resources/test/ff4_ex.sgf");
-        let data = std::fs::read_to_string(sgf_path).unwrap();
+        let data = std::fs::read_to_string(sgf_path)?;
 
-        let sgf_nodes = parse(&data).unwrap();
+        Ok(parse(&data)?)
+    }
+
+    fn node_depth(mut sgf_node: &SgfNode) -> u64 {
+        let mut depth = 1;
+        while sgf_node.children().count() > 0 {
+            depth += 1;
+            sgf_node = sgf_node.children().next().unwrap();
+        }
+        depth
+    }
+
+    #[test]
+    pub fn test_sgf_has_two_gametrees() {
+        let sgf_nodes = load_test_sgf().unwrap();
         assert_eq!(sgf_nodes.len(), 2);
+    }
+
+    #[test]
+    pub fn test_gametree_one_has_five_variations() {
+        let sgf_nodes = load_test_sgf().unwrap();
+        assert_eq!(sgf_nodes[0].children().count(), 5);
+    }
+
+    #[test]
+    pub fn test_gametree_one_has_size_19() {
+        let sgf_nodes = load_test_sgf().unwrap();
+        match sgf_nodes[0].get_property("SZ") {
+            Some(SgfProp::SZ(size)) => assert_eq!(size, &(19, 19)),
+            _ => assert!(false, "Expected size property"),
+        }
+    }
+
+    #[test]
+    pub fn test_gametree_variation_depths() {
+        let sgf_nodes = load_test_sgf().unwrap();
+        let children: Vec<_> = sgf_nodes[0].children().collect();
+        assert_eq!(node_depth(children[0]), 13);
+        assert_eq!(node_depth(children[1]), 4);
+        assert_eq!(node_depth(children[2]), 4);
+    }
+
+    #[test]
+    pub fn test_gametree_two_has_one_variation() {
+        let sgf_nodes = load_test_sgf().unwrap();
+        assert_eq!(sgf_nodes[1].children().count(), 1);
     }
 }
