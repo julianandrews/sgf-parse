@@ -47,6 +47,7 @@ pub enum Move {
 }
 
 /// An SGF [Property Type](https://www.red-bean.com/sgf/sgf4.html#2.2.1).
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum PropertyType {
     Move,
     Setup,
