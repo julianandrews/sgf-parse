@@ -283,12 +283,10 @@ impl SgfProp {
     /// ```
     /// use sgf_parse::SgfProp;
     ///
-    /// // Prints "W"
     /// let prop = SgfProp::new("W".to_string(), vec!["de".to_string()]).unwrap();
-    /// println!("Identifier: {}", prop.identifier());
-    /// // Prints "FOO"
+    /// assert_eq!(prop.identifier(), "W");
     /// let prop = SgfProp::new("FOO".to_string(), vec!["de".to_string()]).unwrap();
-    /// println!("Identifier: {}", prop.identifier());
+    /// assert_eq!(prop.identifier(), "FOO");
     /// ```
     pub fn identifier(&self) -> String {
         match self {
@@ -367,14 +365,12 @@ impl SgfProp {
     ///
     /// # Examples
     /// ```
-    /// use sgf_parse::SgfProp;
+    /// use sgf_parse::{SgfProp, PropertyType};
     ///
-    /// // Prints "W"
     /// let prop = SgfProp::new("W".to_string(), vec!["de".to_string()]).unwrap();
-    /// println!("Identifier: {}", prop.identifier());
-    /// // Prints "FOO"
+    /// assert_eq!(prop.property_type(), Some(PropertyType::Move));
     /// let prop = SgfProp::new("FOO".to_string(), vec!["de".to_string()]).unwrap();
-    /// println!("Identifier: {}", prop.identifier());
+    /// assert_eq!(prop.property_type(), None);
     /// ```
     pub fn property_type(&self) -> Option<PropertyType> {
         match &self {
