@@ -1,8 +1,7 @@
 //! Data structures and utilities for parsing [SGF FF\[4\] files](https://www.red-bean.com/sgf/).
 //!
 //! For most purposes your starting point will likely be the [parse](fn.parse.html) function. The
-//! main interface to the sgf is the [SgfNode](struct.SgfNode.html) struct and the associated
-//! [SgfProp](enum.SgfProp.html) values.
+//! main interface to the sgf is the `SgfNode` struct and the associated `SgfProp` values.
 
 mod errors;
 mod parser;

@@ -2,10 +2,13 @@ use super::errors::SgfParseError;
 use super::props::SgfProp;
 use super::sgf_node::SgfNode;
 
-/// Returns a Vector of the root SgfNodes parsed from the provided text.
+/// Returns a Vector of the root `SgfNodes` parsed from the provided text.
 ///
-/// Any [SgfNode](struct.SgfNode.html) returned by this function should be valid according to the SGF
+/// Any `SgfNode` returned by this function should be valid according to the SGF
 /// specification.
+///
+/// # Errors
+/// If the text isn't a valid SGF FF[4] collection, then an error is returned.
 ///
 /// # Examples
 /// ```
@@ -28,30 +31,30 @@ pub fn parse(text: &str) -> Result<Vec<SgfNode>, SgfParseError> {
         text = new_text.trim();
     }
     if nodes.is_empty() {
-        Err(SgfParseError::ParseError(text.to_string()))?;
+        return Err(SgfParseError::ParseError(text.to_string()));
     }
     Ok(nodes)
 }
 
 fn parse_game_tree(mut text: &str, is_root: bool) -> Result<(SgfNode, &str), SgfParseError> {
-    if text.chars().next() != Some('(') {
-        Err(SgfParseError::ParseError(text.to_string()))?;
+    if !text.starts_with('(') {
+        return Err(SgfParseError::ParseError(text.to_string()));
     }
-    text = &text[1..].trim();
+    text = text[1..].trim();
     let (node, new_text) = parse_node(text, is_root)?;
-    text = &new_text.trim();
-    if text.chars().next() != Some(')') {
-        Err(SgfParseError::ParseError(text.to_string()))?;
+    text = new_text.trim();
+    if !text.starts_with(')') {
+        return Err(SgfParseError::ParseError(text.to_string()));
     }
 
     Ok((node, &text[1..]))
 }
 
 fn parse_node(mut text: &str, is_root: bool) -> Result<(SgfNode, &str), SgfParseError> {
-    if text.chars().next() != Some(';') {
-        Err(SgfParseError::ParseError(text.to_string()))?;
+    if !text.starts_with(';') {
+        return Err(SgfParseError::ParseError(text.to_string()));
     }
-    text = &text[1..].trim();
+    text = text[1..].trim();
 
     let mut props: Vec<SgfProp> = vec![];
     while let Some(c) = text.chars().next() {
@@ -64,16 +67,16 @@ fn parse_node(mut text: &str, is_root: bool) -> Result<(SgfNode, &str), SgfParse
         props.push(prop);
     }
 
-    text = &text.trim();
+    text = text.trim();
     let mut children: Vec<SgfNode> = vec![];
-    while text.chars().next() == Some('(') {
+    while text.starts_with('(') {
         let (node, new_text) = parse_game_tree(text, false)?;
-        text = &new_text.trim();
+        text = new_text.trim();
         children.push(node);
     }
-    if text.chars().next() == Some(';') {
+    if text.starts_with(';') {
         let (node, new_text) = parse_node(text, false)?;
-        text = &new_text;
+        text = new_text;
         children.push(node);
     }
 
@@ -83,10 +86,10 @@ fn parse_node(mut text: &str, is_root: bool) -> Result<(SgfNode, &str), SgfParse
 }
 
 fn parse_property(mut text: &str) -> Result<(SgfProp, &str), SgfParseError> {
-    let (prop_ident, new_text) = parse_prop_ident(text)?;
-    text = &new_text;
-    let (prop_values, new_text) = parse_prop_values(text)?;
-    text = &new_text;
+    let (prop_ident, prop_ident_dropped) = parse_prop_ident(text)?;
+    text = prop_ident_dropped;
+    let (prop_values, prop_values_dropped) = parse_prop_values(text)?;
+    text = prop_values_dropped;
 
     Ok((SgfProp::new(prop_ident, prop_values)?, text))
 }
@@ -100,7 +103,7 @@ fn parse_prop_ident(mut text: &str) -> Result<(String, &str), SgfParseError> {
                 prop_ident.push(c);
                 text = &text[1..];
             }
-            _ => Err(SgfParseError::ParseError(text.to_string()))?,
+            _ => return Err(SgfParseError::ParseError(text.to_string())),
         }
     }
 
@@ -138,7 +141,7 @@ fn parse_value(text: &str) -> Result<(String, &str), SgfParseError> {
                 escaped = false;
                 prop_value.push(c);
             }
-            None => Err(SgfParseError::ParseError(text.to_string()))?,
+            None => return Err(SgfParseError::ParseError(text.to_string())),
         }
     }
 
@@ -168,28 +171,28 @@ mod test {
     }
 
     #[test]
-    pub fn test_sgf_has_two_gametrees() {
+    pub fn sgf_has_two_gametrees() {
         let sgf_nodes = load_test_sgf().unwrap();
         assert_eq!(sgf_nodes.len(), 2);
     }
 
     #[test]
-    pub fn test_gametree_one_has_five_variations() {
+    pub fn gametree_one_has_five_variations() {
         let sgf_nodes = load_test_sgf().unwrap();
         assert_eq!(sgf_nodes[0].children().count(), 5);
     }
 
     #[test]
-    pub fn test_gametree_one_has_size_19() {
+    pub fn gametree_one_has_size_19() {
         let sgf_nodes = load_test_sgf().unwrap();
         match sgf_nodes[0].get_property("SZ") {
             Some(SgfProp::SZ(size)) => assert_eq!(size, &(19, 19)),
-            _ => assert!(false, "Expected size property"),
+            _ => unreachable!("Expected size property"),
         }
     }
 
     #[test]
-    pub fn test_gametree_variation_depths() {
+    pub fn gametree_variation_depths() {
         let sgf_nodes = load_test_sgf().unwrap();
         let children: Vec<_> = sgf_nodes[0].children().collect();
         assert_eq!(node_depth(children[0]), 13);
@@ -198,7 +201,7 @@ mod test {
     }
 
     #[test]
-    pub fn test_gametree_two_has_one_variation() {
+    pub fn gametree_two_has_one_variation() {
         let sgf_nodes = load_test_sgf().unwrap();
         assert_eq!(sgf_nodes[1].children().count(), 1);
     }

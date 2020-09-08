@@ -12,27 +12,32 @@ pub struct SgfNode {
 }
 
 impl SgfNode {
+    /// Returns a new `SgfNode`.
+    ///
+    /// # Errors
+    /// If the provided children and properties don't correspond to a valid SGF node, then an error
+    /// is returned.
     pub fn new(
-        props: Vec<SgfProp>,
-        children: Vec<SgfNode>,
+        properties: Vec<SgfProp>,
+        children: Vec<Self>,
         is_root: bool,
-    ) -> Result<SgfNode, SgfParseError> {
-        let (has_root_props, has_game_info_props) = validate_node_props(&props)?;
+    ) -> Result<Self, SgfParseError> {
+        let (has_root_props, has_game_info_props) = validate_node_props(&properties)?;
         if has_root_props && !is_root {
-            Err(SgfParseError::InvalidNode(
+            return Err(SgfParseError::InvalidNode(
                 "Root properties in non-root node".to_string(),
-            ))?;
+            ));
         }
         let children_have_game_info = children.iter().any(|child| child.has_game_info);
         if has_game_info_props && children_have_game_info {
-            Err(SgfParseError::InvalidNode(
+            return Err(SgfParseError::InvalidNode(
                 "Multiple GameInfo nodes in path.".to_string(),
-            ))?;
+            ));
         }
-        Ok(SgfNode {
-            properties: props,
-            children: children,
-            is_root: is_root,
+        Ok(Self {
+            properties,
+            children,
+            is_root,
             has_game_info: has_game_info_props || children_have_game_info,
         })
     }
@@ -51,7 +56,7 @@ impl SgfNode {
     /// };
     /// ```
     pub fn get_property(&self, identifier: &str) -> Option<&SgfProp> {
-        for prop in self.properties.iter() {
+        for prop in &self.properties {
             if prop.identifier() == identifier {
                 return Some(prop);
             }
@@ -73,7 +78,7 @@ impl SgfNode {
     ///     }
     /// }
     /// ```
-    pub fn children<'a>(&'a self) -> impl Iterator<Item = &SgfNode> + 'a {
+    pub fn children<'a>(&'a self) -> impl Iterator<Item = &Self> + 'a {
         self.children.iter()
     }
 
@@ -104,7 +109,7 @@ impl SgfNode {
 }
 
 impl IntoIterator for SgfNode {
-    type Item = SgfNode;
+    type Item = Self;
     type IntoIter = std::vec::IntoIter<Self::Item>;
 
     fn into_iter(self) -> Self::IntoIter {
@@ -112,7 +117,7 @@ impl IntoIterator for SgfNode {
     }
 }
 
-fn validate_node_props(props: &Vec<SgfProp>) -> Result<(bool, bool), SgfParseError> {
+fn validate_node_props(props: &[SgfProp]) -> Result<(bool, bool), SgfParseError> {
     let mut identifiers = HashSet::new();
     let mut markup_points = HashSet::new();
     let mut setup_node = false;
@@ -127,13 +132,13 @@ fn validate_node_props(props: &Vec<SgfProp>) -> Result<(bool, bool), SgfParseErr
             SgfProp::B(_) => {
                 move_seen = true;
                 if identifiers.contains("W") {
-                    Err(SgfParseError::InvalidNodeProps(props.clone()))?;
+                    return Err(SgfParseError::InvalidNodeProps(props.to_owned()));
                 }
             }
             SgfProp::W(_) => {
                 move_seen = true;
                 if identifiers.contains("B") {
-                    Err(SgfParseError::InvalidNodeProps(props.clone()))?;
+                    return Err(SgfParseError::InvalidNodeProps(props.to_owned()));
                 }
             }
             SgfProp::CR(ps)
@@ -143,7 +148,7 @@ fn validate_node_props(props: &Vec<SgfProp>) -> Result<(bool, bool), SgfParseErr
             | SgfProp::TR(ps) => {
                 for p in ps.iter() {
                     if markup_points.contains(&p) {
-                        Err(SgfParseError::InvalidNodeProps(props.clone()))?;
+                        return Err(SgfParseError::InvalidNodeProps(props.to_owned()));
                     }
                     markup_points.insert(p);
                 }
@@ -165,21 +170,21 @@ fn validate_node_props(props: &Vec<SgfProp>) -> Result<(bool, bool), SgfParseErr
         }
         let ident = prop.identifier();
         if identifiers.contains(&ident) {
-            Err(SgfParseError::InvalidNodeProps(props.clone()))?;
+            return Err(SgfParseError::InvalidNodeProps(props.to_owned()));
         }
         identifiers.insert(prop.identifier());
     }
     if setup_node && move_node {
-        Err(SgfParseError::InvalidNodeProps(props.clone()))?;
+        return Err(SgfParseError::InvalidNodeProps(props.to_owned()));
     }
     if identifiers.contains("KO") && !(identifiers.contains("B") || identifiers.contains("W")) {
-        Err(SgfParseError::InvalidNodeProps(props.clone()))?;
+        return Err(SgfParseError::InvalidNodeProps(props.to_owned()));
     }
     if move_annotation_count > 1 || (move_annotation_count == 1 && !move_seen) {
-        Err(SgfParseError::InvalidNodeProps(props.clone()))?;
+        return Err(SgfParseError::InvalidNodeProps(props.to_owned()));
     }
     if exclusive_node_annotations > 1 {
-        Err(SgfParseError::InvalidNodeProps(props.clone()))?;
+        return Err(SgfParseError::InvalidNodeProps(props.to_owned()));
     }
     Ok((root_node, game_info_node))
 }
