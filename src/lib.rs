@@ -5,10 +5,10 @@
 
 mod errors;
 mod parser;
-mod sgf_node;
 mod props;
+mod sgf_node;
 
 pub use errors::SgfParseError;
 pub use parser::parse;
-pub use props::{SgfProp, Color, Double, Point, Move, PropertyType};
+pub use props::{Color, Double, Move, Point, PropertyType, SgfProp};
 pub use sgf_node::SgfNode;
