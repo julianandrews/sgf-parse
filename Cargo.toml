@@ -1,6 +1,6 @@
 [package]
 name = "sgf-parse"
-version = "0.3.2"
+version = "1.0.0"
 edition = "2018"
 authors = ["Julian Andrews <jandrews271@gmail.com>"]
 license = "MIT"
@@ -8,6 +8,7 @@ keywords = ["baduk", "parser", "sgf", "go"]
 repository = "https://github.com/julianandrews/sgf-parse/"
 readme = "README.md"
 description = "A parser for the SGF file format for Go games"
+documentation = "https://docs.rs/sgf-parse"
 categories = ["data-structures", "parsing"]
 
 [dependencies]
