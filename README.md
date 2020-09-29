@@ -1,4 +1,7 @@
 # sgf-parse - A library for parsing SGF files
+
+![Continuous integration](https://github.com/julianandrews/sgf-parse/workflows/Continuous%20integration/badge.svg)
+
 A library for parsing [SGF FF\[4\]](https://www.red-bean.com/sgf/sgf4.html)
 files in Rust.
 
