@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::fmt;
 use std::str::FromStr;
 
 use super::SgfParseError;
@@ -46,6 +47,56 @@ pub enum Move {
     Move(Point),
 }
 
+/// An SGF [Text](https://www.red-bean.com/sgf/sgf4.html#types) value.
+///
+/// The text itself will be the raw text as stored in an sgf file. Displays formatted and escaped
+/// as [here](https://www.red-bean.com/sgf/sgf4.html#text)).
+///
+/// # Examples
+/// ```
+/// use sgf_parse::Text;
+/// let text = Text { text: "Comment:\nnon-linebreak whitespace\treplaced".to_string() };
+/// assert_eq!(format!("{}", text), "Comment:\nnon-linebreak whitespace replaced");
+/// ```
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct Text {
+    pub text: String,
+}
+
+impl fmt::Display for Text {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let text = format_text(&self.text);
+        f.write_str(&text)
+    }
+}
+
+/// An SGF [SimpleText](https://www.red-bean.com/sgf/sgf4.html#types) value.
+///
+/// The text itself will be the raw text as stored in an sgf file. Displays formatted and escaped
+/// as [here](https://www.red-bean.com/sgf/sgf4.html#simpletext)).
+///
+/// # Examples
+/// ```
+/// use sgf_parse::SimpleText;
+/// let text = SimpleText { text: "Comment:\nall whitespace\treplaced".to_string() };
+/// assert_eq!(format!("{}", text), "Comment: all whitespace replaced");
+/// ```
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub struct SimpleText {
+    pub text: String,
+}
+
+impl fmt::Display for SimpleText {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let text = format_text(&self.text)
+            .replace("\r\n", " ")
+            .replace("\n\r", " ")
+            .replace("\n", " ")
+            .replace("\r", " ");
+        f.write_str(&text)
+    }
+}
+
 /// An SGF [Property Type](https://www.red-bean.com/sgf/sgf4.html#2.2.1).
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum PropertyType {
@@ -69,10 +120,8 @@ pub enum PropertyType {
 /// * 'Real' => [f64](https://doc.rust-lang.org/std/primitive.f64.html)
 /// * 'Double' => [Double](enum.Double.html)
 /// * 'Color' => [Color](enum.Color.html)
-/// * 'SimpleText' => [String](https://doc.rust-lang.org/std/string/struct.String.html)
-///     (formatted and escaped as [here](https://www.red-bean.com/sgf/sgf4.html#text))
-/// * 'Text' => [String](https://doc.rust-lang.org/std/string/struct.String.html)
-///     (formatted and escaped as [here](https://www.red-bean.com/sgf/sgf4.html#simpletext))
+/// * 'SimpleText' => [SimpleText](struct.SimpleText.html)
+/// * 'Text' => [Text](struct.Text.html)
 /// * 'Point' => [Point](struct.Point.html)
 /// * 'Stone' => [Point](struct.Point.html)
 /// * 'Move' => [Move](enum.Move.html)
@@ -91,12 +140,12 @@ pub enum SgfProp {
     AW(Vec<Point>),
     PL(Color),
     // Node Annotation properties
-    C(String),
+    C(Text),
     DM(Double),
     GB(Double),
     GW(Double),
     HO(Double),
-    N(String),
+    N(SimpleText),
     UC(Double),
     V(f64),
     // Move annotation properties
@@ -108,15 +157,15 @@ pub enum SgfProp {
     AR(Vec<(Point, Point)>),
     CR(Vec<Point>),
     DD(Vec<Point>),
-    LB(Vec<(Point, String)>),
+    LB(Vec<(Point, SimpleText)>),
     LN(Vec<(Point, Point)>),
     MA(Vec<Point>),
     SL(Vec<Point>),
     SQ(Vec<Point>),
     TR(Vec<Point>),
     // Root Properties
-    AP((String, String)),
-    CA(String),
+    AP((SimpleText, SimpleText)),
+    CA(SimpleText),
     FF(i64),
     GM(i64),
     ST(i64),
@@ -124,34 +173,34 @@ pub enum SgfProp {
     // Game info properties
     HA(i64),
     KM(f64),
-    AN(String),
-    BR(String),
-    BT(String),
-    CP(String),
-    DT(String),
-    EV(String),
-    GN(String),
-    GC(String),
-    ON(String),
-    OT(String),
-    PB(String),
-    PC(String),
-    PW(String),
-    RE(String),
-    RO(String),
-    RU(String),
-    SO(String),
+    AN(SimpleText),
+    BR(SimpleText),
+    BT(SimpleText),
+    CP(SimpleText),
+    DT(SimpleText),
+    EV(SimpleText),
+    GN(SimpleText),
+    GC(Text),
+    ON(SimpleText),
+    OT(SimpleText),
+    PB(SimpleText),
+    PC(SimpleText),
+    PW(SimpleText),
+    RE(SimpleText),
+    RO(SimpleText),
+    RU(SimpleText),
+    SO(SimpleText),
     TM(f64),
-    US(String),
-    WR(String),
-    WT(String),
+    US(SimpleText),
+    WR(SimpleText),
+    WT(SimpleText),
     // Timing Properties
     BL(f64),
     OB(i64),
     OW(i64),
     WL(f64),
     // Miscellaneous properties
-    FG(Option<(i64, String)>),
+    FG(Option<(i64, SimpleText)>),
     PM(i64),
     VW(Vec<Point>),
     TB(Vec<Point>),
@@ -447,14 +496,16 @@ fn parse_single_value<T: FromStr>(values: &[String]) -> Result<T, SgfParseError>
         .map_err(|_| SgfParseError::InvalidPropertyValue)
 }
 
-fn parse_single_text_value(values: &[String]) -> Result<String, SgfParseError> {
+fn parse_single_text_value(values: &[String]) -> Result<Text, SgfParseError> {
     if values.len() != 1 {
         return Err(SgfParseError::InvalidPropertyValue);
     }
-    Ok(parse_text(&values[0]))
+    Ok(Text {
+        text: values[0].clone(),
+    })
 }
 
-fn parse_text(s: &str) -> String {
+fn format_text(s: &str) -> String {
     // See https://www.red-bean.com/sgf/sgf4.html#text
     let mut output = vec![];
     let chars: Vec<char> = s.chars().collect();
@@ -496,19 +547,13 @@ fn parse_text(s: &str) -> String {
     output.into_iter().collect()
 }
 
-fn parse_single_simple_text_value(values: &[String]) -> Result<String, SgfParseError> {
+fn parse_single_simple_text_value(values: &[String]) -> Result<SimpleText, SgfParseError> {
     if values.len() != 1 {
         return Err(SgfParseError::InvalidPropertyValue);
     }
-    Ok(parse_simple_text(&values[0]))
-}
-
-fn parse_simple_text(s: &str) -> String {
-    parse_text(s)
-        .replace("\r\n", " ")
-        .replace("\n\r", " ")
-        .replace("\n", " ")
-        .replace("\r", " ")
+    Ok(SimpleText {
+        text: values[0].clone(),
+    })
 }
 
 fn parse_list_point(values: &[String]) -> Result<Vec<Point>, SgfParseError> {
@@ -596,14 +641,16 @@ fn parse_size(values: &[String]) -> Result<(u8, u8), SgfParseError> {
     }
 }
 
-fn parse_labels(values: &[String]) -> Result<Vec<(Point, String)>, SgfParseError> {
+fn parse_labels(values: &[String]) -> Result<Vec<(Point, SimpleText)>, SgfParseError> {
     let mut labels = vec![];
     for value in values.iter() {
         let (s1, s2) = split_compose(value)?;
         labels.push((
             s1.parse()
                 .map_err(|_| SgfParseError::InvalidPropertyValue)?,
-            parse_simple_text(s2),
+            SimpleText {
+                text: s2.to_string(),
+            },
         ));
     }
     if labels.is_empty() {
@@ -613,7 +660,7 @@ fn parse_labels(values: &[String]) -> Result<Vec<(Point, String)>, SgfParseError
     Ok(labels)
 }
 
-fn parse_figure(values: &[String]) -> Result<Option<(i64, String)>, SgfParseError> {
+fn parse_figure(values: &[String]) -> Result<Option<(i64, SimpleText)>, SgfParseError> {
     if values.is_empty() || (values.len() == 1 && values[0] == "") {
         return Ok(None);
     }
@@ -625,16 +672,25 @@ fn parse_figure(values: &[String]) -> Result<Option<(i64, String)>, SgfParseErro
     Ok(Some((
         s1.parse()
             .map_err(|_| SgfParseError::InvalidPropertyValue)?,
-        parse_simple_text(s2),
+        SimpleText {
+            text: s2.to_string(),
+        },
     )))
 }
 
-fn parse_application(values: &[String]) -> Result<(String, String), SgfParseError> {
+fn parse_application(values: &[String]) -> Result<(SimpleText, SimpleText), SgfParseError> {
     if values.len() != 1 {
         return Err(SgfParseError::InvalidPropertyValue);
     }
     let (s1, s2) = split_compose(&values[0])?;
-    Ok((parse_simple_text(s1), parse_simple_text(s2)))
+    Ok((
+        SimpleText {
+            text: s1.to_string(),
+        },
+        SimpleText {
+            text: s2.to_string(),
+        },
+    ))
 }
 
 impl FromStr for Move {
@@ -707,20 +763,25 @@ mod test {
     use std::collections::HashSet;
 
     #[test]
-    pub fn parse_text() {
-        let text = "Comment with\trandom whitespace\nescaped \\] and \\\\ and a soft \\\nlinebreak";
+    pub fn format_text() {
+        let text = super::Text {
+            text: "Comment with\trandom whitespace\nescaped \\] and \\\\ and a soft \\\nlinebreak"
+                .to_string(),
+        };
         let expected = "Comment with random whitespace\nescaped ] and \\ and a soft linebreak";
 
-        assert_eq!(super::parse_text(text), expected);
+        assert_eq!(format!("{}", text), expected);
     }
 
     #[test]
-    pub fn parse_simple_text() {
-        let text =
-            "Comment with\trandom\r\nwhitespace\n\rescaped \\] and \\\\ and\na soft \\\nlinebreak";
+    pub fn format_simple_text() {
+        let text = super::SimpleText { text:
+            "Comment with\trandom\r\nwhitespace\n\rescaped \\] and \\\\ and\na soft \\\nlinebreak"
+                .to_string()
+        };
         let expected = "Comment with random whitespace escaped ] and \\ and a soft linebreak";
 
-        assert_eq!(super::parse_simple_text(text), expected);
+        assert_eq!(format!("{}", text), expected);
     }
 
     #[test]
