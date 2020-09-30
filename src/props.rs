@@ -50,7 +50,7 @@ pub enum Move {
 /// An SGF [Text](https://www.red-bean.com/sgf/sgf4.html#types) value.
 ///
 /// The text itself will be the raw text as stored in an sgf file. Displays formatted and escaped
-/// as [here](https://www.red-bean.com/sgf/sgf4.html#text)).
+/// as [here](https://www.red-bean.com/sgf/sgf4.html#text).
 ///
 /// # Examples
 /// ```
@@ -73,7 +73,7 @@ impl fmt::Display for Text {
 /// An SGF [SimpleText](https://www.red-bean.com/sgf/sgf4.html#types) value.
 ///
 /// The text itself will be the raw text as stored in an sgf file. Displays formatted and escaped
-/// as [here](https://www.red-bean.com/sgf/sgf4.html#simpletext)).
+/// as [here](https://www.red-bean.com/sgf/sgf4.html#simpletext).
 ///
 /// # Examples
 /// ```
@@ -125,9 +125,9 @@ pub enum PropertyType {
 /// * 'Point' => [Point](struct.Point.html)
 /// * 'Stone' => [Point](struct.Point.html)
 /// * 'Move' => [Move](enum.Move.html)
-/// * 'List' => [Vec](https://doc.rust-lang.org/std/vec/struct.Vec.html)
+/// * 'List' => [HashSet](https://doc.rust-lang.org/std/collections/struct.HashSet.html)
 /// * 'Compose' => a [tuple](https://doc.rust-lang.org/std/primitive.tuple.html) of the composed values
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum SgfProp {
     // Move Properties
     B(Move),
@@ -135,9 +135,9 @@ pub enum SgfProp {
     MN(i64),
     W(Move),
     // Setup Properties
-    AB(Vec<Point>),
-    AE(Vec<Point>),
-    AW(Vec<Point>),
+    AB(HashSet<Point>),
+    AE(HashSet<Point>),
+    AW(HashSet<Point>),
     PL(Color),
     // Node Annotation properties
     C(Text),
@@ -154,15 +154,15 @@ pub enum SgfProp {
     IT,
     TE(Double),
     // Markup Properties
-    AR(Vec<(Point, Point)>),
-    CR(Vec<Point>),
-    DD(Vec<Point>),
-    LB(Vec<(Point, SimpleText)>),
-    LN(Vec<(Point, Point)>),
-    MA(Vec<Point>),
-    SL(Vec<Point>),
-    SQ(Vec<Point>),
-    TR(Vec<Point>),
+    AR(HashSet<(Point, Point)>),
+    CR(HashSet<Point>),
+    DD(HashSet<Point>),
+    LB(HashSet<(Point, SimpleText)>),
+    LN(HashSet<(Point, Point)>),
+    MA(HashSet<Point>),
+    SL(HashSet<Point>),
+    SQ(HashSet<Point>),
+    TR(HashSet<Point>),
     // Root Properties
     AP((SimpleText, SimpleText)),
     CA(SimpleText),
@@ -202,9 +202,9 @@ pub enum SgfProp {
     // Miscellaneous properties
     FG(Option<(i64, SimpleText)>),
     PM(i64),
-    VW(Vec<Point>),
-    TB(Vec<Point>),
-    TW(Vec<Point>),
+    VW(HashSet<Point>),
+    TB(HashSet<Point>),
+    TW(HashSet<Point>),
     Unknown(String, Vec<String>),
 }
 
@@ -556,7 +556,7 @@ fn parse_single_simple_text_value(values: &[String]) -> Result<SimpleText, SgfPa
     })
 }
 
-fn parse_list_point(values: &[String]) -> Result<Vec<Point>, SgfParseError> {
+fn parse_list_point(values: &[String]) -> Result<HashSet<Point>, SgfParseError> {
     let points = parse_elist_point(values)?;
     if points.is_empty() {
         return Err(SgfParseError::InvalidPropertyValue);
@@ -565,7 +565,7 @@ fn parse_list_point(values: &[String]) -> Result<Vec<Point>, SgfParseError> {
     Ok(points)
 }
 
-fn parse_elist_point(values: &[String]) -> Result<Vec<Point>, SgfParseError> {
+fn parse_elist_point(values: &[String]) -> Result<HashSet<Point>, SgfParseError> {
     let mut points = HashSet::new();
     for value in values.iter() {
         if value.contains(':') {
@@ -591,10 +591,10 @@ fn parse_elist_point(values: &[String]) -> Result<Vec<Point>, SgfParseError> {
         }
     }
 
-    Ok(points.into_iter().collect())
+    Ok(points)
 }
 
-fn parse_list_composed_point(values: &[String]) -> Result<Vec<(Point, Point)>, SgfParseError> {
+fn parse_list_composed_point(values: &[String]) -> Result<HashSet<(Point, Point)>, SgfParseError> {
     let mut pairs = HashSet::new();
     for value in values.iter() {
         let pair = parse_tuple(value)?;
@@ -604,7 +604,7 @@ fn parse_list_composed_point(values: &[String]) -> Result<Vec<(Point, Point)>, S
         pairs.insert(pair);
     }
 
-    Ok(pairs.into_iter().collect())
+    Ok(pairs)
 }
 
 fn split_compose(value: &str) -> Result<(&str, &str), SgfParseError> {
@@ -641,11 +641,11 @@ fn parse_size(values: &[String]) -> Result<(u8, u8), SgfParseError> {
     }
 }
 
-fn parse_labels(values: &[String]) -> Result<Vec<(Point, SimpleText)>, SgfParseError> {
-    let mut labels = vec![];
+fn parse_labels(values: &[String]) -> Result<HashSet<(Point, SimpleText)>, SgfParseError> {
+    let mut labels = HashSet::new();
     for value in values.iter() {
         let (s1, s2) = split_compose(value)?;
-        labels.push((
+        labels.insert((
             s1.parse()
                 .map_err(|_| SgfParseError::InvalidPropertyValue)?,
             SimpleText {
@@ -812,10 +812,7 @@ mod test {
         .map(|(x, y)| super::Point { x, y })
         .collect();
 
-        let result: HashSet<_> = super::parse_list_point(&values)
-            .unwrap()
-            .into_iter()
-            .collect();
+        let result: HashSet<_> = super::parse_list_point(&values).unwrap();
 
         assert_eq!(result, expected);
     }

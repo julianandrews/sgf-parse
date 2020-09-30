@@ -150,7 +150,8 @@ fn parse_value(text: &str) -> Result<(String, &str), SgfParseError> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use super::super::serialize;
+    use super::{parse, SgfNode, SgfProp};
 
     fn load_test_sgf() -> Result<Vec<SgfNode>, Box<dyn std::error::Error>> {
         // See https://www.red-bean.com/sgf/examples/
@@ -204,5 +205,13 @@ mod test {
     pub fn gametree_two_has_one_variation() {
         let sgf_nodes = load_test_sgf().unwrap();
         assert_eq!(sgf_nodes[1].children().count(), 1);
+    }
+
+    #[test]
+    pub fn serialize_then_parse() {
+        let sgf_nodes = load_test_sgf().unwrap();
+        let text = serialize(&sgf_nodes);
+        println!("{}", text);
+        assert_eq!(sgf_nodes, parse(&text).unwrap());
     }
 }

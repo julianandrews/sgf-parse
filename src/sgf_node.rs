@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use super::{PropertyType, SgfParseError, SgfProp};
 
 /// A node in an SGF Game Tree.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct SgfNode {
     properties: Vec<SgfProp>,
     children: Vec<SgfNode>,
