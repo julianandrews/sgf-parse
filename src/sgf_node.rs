@@ -3,6 +3,13 @@ use std::collections::HashSet;
 use super::{PropertyType, SgfParseError, SgfProp};
 
 /// A node in an SGF Game Tree.
+///
+/// By design `SgfNode` is immutable and can any succesfully constructed `SgfNode` should be valid
+/// and serializable.
+///
+/// If you want to 'edit' an `SgfNode` without copying the properties and children, you must
+/// destructure it, make your changes, and then build a new `SgfNode` from the parts. See the
+/// the [destructure](struct.SgfNode.html#method.destructure) method.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SgfNode {
     properties: Vec<SgfProp>,
@@ -17,6 +24,22 @@ impl SgfNode {
     /// # Errors
     /// If the provided children and properties don't correspond to a valid SGF node, then an error
     /// is returned.
+    ///
+    /// # Examples
+    /// ```
+    /// use sgf_parse::{serialize, SgfNode, SgfProp, Move, Point};
+    ///
+    /// let children = vec![
+    ///     SgfNode::new(
+    ///         vec![SgfProp::B(Move::Move(Point { x: 3, y: 3 }))],
+    ///         vec![],
+    ///         false,
+    ///     ).unwrap()
+    /// ];
+    ///
+    /// let node = SgfNode::new(vec![SgfProp::SZ((19, 19))], children, true).unwrap();
+    /// assert_eq!(serialize(std::iter::once(&node)), "(;SZ[19:19];B[dd])");
+    /// ```
     pub fn new(
         properties: Vec<SgfProp>,
         children: Vec<Self>,
@@ -105,6 +128,24 @@ impl SgfNode {
     /// ```
     pub fn properties<'a>(&'a self) -> impl Iterator<Item = &SgfProp> + 'a {
         self.properties.iter()
+    }
+
+    /// Returns the fields of the node, consuming it in the process.
+    ///
+    /// # Examples
+    /// ```
+    /// use sgf_parse::{parse, serialize, SgfNode, SgfProp, Text};
+    ///
+    /// let node = parse("(;SZ[13:13];B[de])").unwrap().into_iter().next().unwrap();
+    /// let (mut properties, children, is_root) = node.destructure();
+    /// properties.push(SgfProp::C(Text { text: "New comment".to_string() }));
+    /// let node = SgfNode::new(properties, children, true);
+    /// assert_eq!(serialize(&node), "(;SZ[13:13]C[New comment];B[de])");
+    /// ```
+    pub fn destructure(self) -> (Vec<SgfProp>, Vec<SgfNode>, bool) {
+        match self {
+            SgfNode { properties, children, is_root, has_game_info: _ } => (properties, children, is_root)
+        }
     }
 }
 
