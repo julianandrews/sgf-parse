@@ -4,8 +4,7 @@
 //! return a `Vector` of `SgfNode` structs.
 //!
 //! For writing SGFs you'll want to build a collection of `SgfNode` structs, and then use
-//! [serialize](fn.serialize.html). See [SgfNodeBuilder](struct.SgfNodeBuilder.html) and
-//! [SgfNode::to_builder](struct.SgfNode.html#method.to_builder) for tools for doing this.
+//! [serialize](fn.serialize.html). See `SgfNodeBuilder` and `SgfNode::to_builder`.
 
 mod errors;
 mod parser;

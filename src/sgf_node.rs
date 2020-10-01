@@ -7,8 +7,7 @@ use super::{PropertyType, SgfParseError, SgfProp};
 /// By design `SgfNode` is immutable and can any succesfully constructed `SgfNode` should be valid
 /// and serializable.
 ///
-/// If you want to edit an `SgfNode` first convert it into an `SgfNodeBuilder` using the
-/// [into_builder](struct.SgfNode.html#method.into_builder) method.
+/// If you want to edit an `SgfNode` convert it into an `SgfNodeBuilder` using `SgfNode::into_builder`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SgfNode {
     properties: Vec<SgfProp>,
@@ -145,7 +144,7 @@ impl SgfNode {
     /// assert_eq!(sgf, "(;SZ[13:13]C[New comment];B[de])");
     /// ```
     pub fn into_builder(self) -> SgfNodeBuilder {
-        let SgfNode {
+        let Self {
             properties,
             children,
             is_root,
@@ -153,7 +152,7 @@ impl SgfNode {
         } = self;
         let children = children
             .into_iter()
-            .map(|child| child.into_builder())
+            .map(Self::into_builder)
             .collect::<Vec<_>>();
 
         SgfNodeBuilder {
@@ -241,8 +240,7 @@ fn validate_node_props(props: &[SgfProp]) -> Result<(bool, bool), SgfParseError>
 /// `SgfNode`s are immutable and required to be valid from the time of creation. An `SgfNodeBuilder`
 /// can be used to construct a complicated game tree which can then be converted to an `SgfNode`
 /// with little overhead. If you're building an SGF file from scratch, this should be your starting
-/// point. If you want to modify an existing SGF,
-/// [SgfNode::into_builder](struct.SgfNode.html#method.into_builder) will get you an
+/// point. If you want to modify an existing SGF, `SgfNode::into_builder` will get you an
 /// `SgfNodeBuilder` to work with.
 ///
 /// Note that `SgfNodeBuilder` performs no validation until you call the `build` method. The user
@@ -271,24 +269,24 @@ pub struct SgfNodeBuilder {
 }
 
 impl SgfNodeBuilder {
-    /// Return a new empty SgfNodeBuilder.
-    pub fn new() -> SgfNodeBuilder {
-        Default::default()
+    /// Return a new empty `SgfNodeBuilder`.
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Consume the `SgfNodeBuilder` and its children and return an `SgfNode`.
     ///
     /// # Errors
-    /// If the SgfNode or any of its children are invalid, then an error is returned.
+    /// If the `SgfNode` or any of its children are invalid, then an error is returned.
     pub fn build(self) -> Result<SgfNode, SgfParseError> {
-        let SgfNodeBuilder {
+        let Self {
             properties,
             children,
             is_root,
         } = self;
         let children = children
             .into_iter()
-            .map(|b| b.build())
+            .map(Self::build)
             .collect::<Result<Vec<_>, _>>()?;
 
         SgfNode::new(properties, children, is_root)
