@@ -7,9 +7,12 @@ use super::{Color, Double, Move, Point, SgfNode, SgfProp, SimpleText, Text};
 /// # Examples
 /// ```
 /// use sgf_parse::{parse, serialize};
-/// let text = "(;SZ[13:13];B[de](;W[ef])(;W[de];B[ac]))";
-/// let nodes = parse(text).unwrap();
-/// assert_eq!(serialize(nodes.iter()), text);
+///
+/// let original = "(;SZ[13:13];B[de](;W[ef])(;W[de];B[ac]))";
+/// let nodes = parse(original).unwrap();
+/// let parsed = serialize(&nodes);
+///
+/// assert_eq!(parsed, original);
 /// ```
 pub fn serialize<'a>(nodes: impl IntoIterator<Item = &'a SgfNode>) -> String {
     let node_text = nodes

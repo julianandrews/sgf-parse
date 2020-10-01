@@ -3,8 +3,9 @@
 //! For reading SGFs your starting point will be the [parse](fn.parse.html) function which will
 //! return a `Vector` of `SgfNode` structs.
 //!
-//! For writing SGFs you'll want to build or modify a collection of `SgfNode` structs, and then use
-//! [serialize](fn.serialize.html).
+//! For writing SGFs you'll want to build a collection of `SgfNode` structs, and then use
+//! [serialize](fn.serialize.html). See [SgfNodeBuilder](struct.SgfNodeBuilder.html) and
+//! [SgfNode::to_builder](struct.SgfNode.html#method.to_builder) for tools for doing this.
 
 mod errors;
 mod parser;
@@ -16,4 +17,4 @@ pub use errors::SgfParseError;
 pub use parser::parse;
 pub use props::{Color, Double, Move, Point, PropertyType, SgfProp, SimpleText, Text};
 pub use serialize::serialize;
-pub use sgf_node::SgfNode;
+pub use sgf_node::{SgfNode, SgfNodeBuilder};

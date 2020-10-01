@@ -7,9 +7,8 @@ use super::{PropertyType, SgfParseError, SgfProp};
 /// By design `SgfNode` is immutable and can any succesfully constructed `SgfNode` should be valid
 /// and serializable.
 ///
-/// If you want to 'edit' an `SgfNode` without copying the properties and children, you must
-/// destructure it, make your changes, and then build a new `SgfNode` from the parts. See the
-/// the [destructure](struct.SgfNode.html#method.destructure) method.
+/// If you want to edit an `SgfNode` first convert it into an `SgfNodeBuilder` using the
+/// [into_builder](struct.SgfNode.html#method.into_builder) method.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SgfNode {
     properties: Vec<SgfProp>,
@@ -31,7 +30,7 @@ impl SgfNode {
     ///
     /// let children = vec![
     ///     SgfNode::new(
-    ///         vec![SgfProp::B(Move::Move(Point { x: 3, y: 3 }))],
+    ///         vec![SgfProp::new("B".to_string(), vec!["dd".to_string()]).unwrap()],
     ///         vec![],
     ///         false,
     ///     ).unwrap()
@@ -130,31 +129,38 @@ impl SgfNode {
         self.properties.iter()
     }
 
-    /// Returns the fields of the node, consuming it in the process.
+    /// Returns an editable `SgfNodeBuilder` for the node, consuming it in the process.
     ///
     /// # Examples
     /// ```
-    /// use sgf_parse::{parse, serialize, SgfNode, SgfProp, Text};
+    /// use sgf_parse::{parse, serialize, SgfProp};
     ///
     /// let node = parse("(;SZ[13:13];B[de])").unwrap().into_iter().next().unwrap();
-    /// let (mut properties, children, is_root) = node.destructure();
-    /// properties.push(SgfProp::C(Text { text: "New comment".to_string() }));
-    /// let node = SgfNode::new(properties, children, true);
-    /// assert_eq!(serialize(&node), "(;SZ[13:13]C[New comment];B[de])");
+    /// let new_prop = SgfProp::new("C".to_string(), vec!["New comment".to_string()]).unwrap();
+    /// let mut builder = node.into_builder();
+    /// builder.properties.push(new_prop);
+    /// let new_node = builder.build();
+    /// let sgf = serialize(&new_node);
+    ///
+    /// assert_eq!(sgf, "(;SZ[13:13]C[New comment];B[de])");
     /// ```
-    pub fn destructure(self) -> (Vec<SgfProp>, Vec<SgfNode>, bool) {
-        match self {
-            SgfNode { properties, children, is_root, has_game_info: _ } => (properties, children, is_root)
+    pub fn into_builder(self) -> SgfNodeBuilder {
+        let SgfNode {
+            properties,
+            children,
+            is_root,
+            has_game_info: _,
+        } = self;
+        let children = children
+            .into_iter()
+            .map(|child| child.into_builder())
+            .collect::<Vec<_>>();
+
+        SgfNodeBuilder {
+            properties,
+            children,
+            is_root,
         }
-    }
-}
-
-impl IntoIterator for SgfNode {
-    type Item = Self;
-    type IntoIter = std::vec::IntoIter<Self::Item>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.children.into_iter()
     }
 }
 
@@ -228,4 +234,63 @@ fn validate_node_props(props: &[SgfProp]) -> Result<(bool, bool), SgfParseError>
         return Err(SgfParseError::InvalidNodeProps(props.to_owned()));
     }
     Ok((root_node, game_info_node))
+}
+
+/// A builder for `SgfNode`s.
+///
+/// `SgfNode`s are immutable and required to be valid from the time of creation. An `SgfNodeBuilder`
+/// can be used to construct a complicated game tree which can then be converted to an `SgfNode`
+/// with little overhead. If you're building an SGF file from scratch, this should be your starting
+/// point. If you want to modify an existing SGF,
+/// [SgfNode::into_builder](struct.SgfNode.html#method.into_builder) will get you an
+/// `SgfNodeBuilder` to work with.
+///
+/// Note that `SgfNodeBuilder` performs no validation until you call the `build` method. The user
+/// is responsible for ensuring that no invalid combination of properties has been set.
+///
+/// # Examples
+/// ```
+/// use sgf_parse::{serialize, SgfNodeBuilder, SgfProp};
+///
+/// let mut node = SgfNodeBuilder::new();
+/// node.properties.push(SgfProp::new("B".to_string(), vec!["jj".to_string()]).unwrap());
+/// let mut child = SgfNodeBuilder::new();
+/// child.properties.push(SgfProp::new("W".to_string(), vec!["cd".to_string()]).unwrap());
+/// node.children.push(child);
+///
+/// let node = node.build();
+/// let sgf = serialize(&node);
+///
+/// assert_eq!(sgf, "(;B[jj];W[cd])");
+/// ```
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct SgfNodeBuilder {
+    pub properties: Vec<SgfProp>,
+    pub children: Vec<SgfNodeBuilder>,
+    pub is_root: bool,
+}
+
+impl SgfNodeBuilder {
+    /// Return a new empty SgfNodeBuilder.
+    pub fn new() -> SgfNodeBuilder {
+        Default::default()
+    }
+
+    /// Consume the `SgfNodeBuilder` and its children and return an `SgfNode`.
+    ///
+    /// # Errors
+    /// If the SgfNode or any of its children are invalid, then an error is returned.
+    pub fn build(self) -> Result<SgfNode, SgfParseError> {
+        let SgfNodeBuilder {
+            properties,
+            children,
+            is_root,
+        } = self;
+        let children = children
+            .into_iter()
+            .map(|b| b.build())
+            .collect::<Result<Vec<_>, _>>()?;
+
+        SgfNode::new(properties, children, is_root)
+    }
 }
