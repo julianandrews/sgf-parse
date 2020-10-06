@@ -10,5 +10,3 @@ readme = "README.md"
 description = "A parser for the SGF file format for Go games"
 documentation = "https://docs.rs/sgf-parse"
 categories = ["data-structures", "parsing"]
-
-[dependencies]

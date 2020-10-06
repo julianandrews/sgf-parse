@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::fmt;
 
 use super::{Color, Double, Move, Point, SgfNode, SgfProp, SimpleText, Text};
 
@@ -17,38 +18,38 @@ use super::{Color, Double, Move, Point, SgfNode, SgfProp, SimpleText, Text};
 pub fn serialize<'a>(nodes: impl IntoIterator<Item = &'a SgfNode>) -> String {
     let node_text = nodes
         .into_iter()
-        .map(|node| node.to_sgf())
+        .map(|node| node.to_string())
         .collect::<Vec<String>>()
         .join(")(");
     format!("({})", node_text)
 }
 
-trait ToSgf {
-    fn to_sgf(&self) -> String;
-}
-
-impl ToSgf for SgfNode {
-    fn to_sgf(&self) -> String {
+impl fmt::Display for SgfNode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let prop_string = self
             .properties()
-            .map(|x| x.to_sgf())
+            .map(|x| x.to_string())
             .collect::<Vec<_>>()
             .join("");
         let child_count = self.children().count();
         let child_string = match child_count {
             0 => "".to_string(),
-            1 => self.children().next().unwrap().to_sgf(),
+            1 => self.children().next().unwrap().to_string(),
             _ => self
                 .children()
-                .map(|x| format!("({})", x.to_sgf()))
+                .map(|x| format!("({})", x.to_string()))
                 .collect::<Vec<_>>()
                 .join(""),
         };
-        format!(";{}{}", prop_string, child_string)
+        write!(f, ";{}{}", prop_string, child_string)
     }
 }
 
-impl<A: ToSgf, B: ToSgf> ToSgf for HashSet<(A, B)> {
+trait ToSgfPropValueString {
+    fn to_sgf(&self) -> String;
+}
+
+impl<A: ToSgfPropValueString, B: ToSgfPropValueString> ToSgfPropValueString for HashSet<(A, B)> {
     fn to_sgf(&self) -> String {
         self.iter()
             .map(|x| x.to_sgf())
@@ -58,13 +59,13 @@ impl<A: ToSgf, B: ToSgf> ToSgf for HashSet<(A, B)> {
 }
 
 // Unknown properties.
-impl ToSgf for Vec<String> {
+impl ToSgfPropValueString for Vec<String> {
     fn to_sgf(&self) -> String {
         self.join("][")
     }
 }
 
-impl ToSgf for HashSet<Point> {
+impl ToSgfPropValueString for HashSet<Point> {
     fn to_sgf(&self) -> String {
         self.iter()
             .map(|x| x.to_sgf())
@@ -73,13 +74,13 @@ impl ToSgf for HashSet<Point> {
     }
 }
 
-impl<A: ToSgf, B: ToSgf> ToSgf for (A, B) {
+impl<A: ToSgfPropValueString, B: ToSgfPropValueString> ToSgfPropValueString for (A, B) {
     fn to_sgf(&self) -> String {
         format!("{}:{}", self.0.to_sgf(), self.1.to_sgf())
     }
 }
 
-impl<T: ToSgf> ToSgf for Option<T> {
+impl<T: ToSgfPropValueString> ToSgfPropValueString for Option<T> {
     fn to_sgf(&self) -> String {
         match self {
             None => "".to_string(),
@@ -88,25 +89,25 @@ impl<T: ToSgf> ToSgf for Option<T> {
     }
 }
 
-impl ToSgf for u8 {
+impl ToSgfPropValueString for u8 {
     fn to_sgf(&self) -> String {
         self.to_string()
     }
 }
 
-impl ToSgf for i64 {
+impl ToSgfPropValueString for i64 {
     fn to_sgf(&self) -> String {
         self.to_string()
     }
 }
 
-impl ToSgf for f64 {
+impl ToSgfPropValueString for f64 {
     fn to_sgf(&self) -> String {
         self.to_string()
     }
 }
 
-impl ToSgf for Double {
+impl ToSgfPropValueString for Double {
     fn to_sgf(&self) -> String {
         match self {
             Self::One => "1".to_string(),
@@ -115,7 +116,7 @@ impl ToSgf for Double {
     }
 }
 
-impl ToSgf for Color {
+impl ToSgfPropValueString for Color {
     fn to_sgf(&self) -> String {
         match self {
             Self::Black => "B".to_string(),
@@ -124,13 +125,13 @@ impl ToSgf for Color {
     }
 }
 
-impl ToSgf for Point {
+impl ToSgfPropValueString for Point {
     fn to_sgf(&self) -> String {
         format!("{}{}", (self.x + b'a') as char, (self.y + b'a') as char)
     }
 }
 
-impl ToSgf for Move {
+impl ToSgfPropValueString for Move {
     fn to_sgf(&self) -> String {
         match self {
             Self::Pass => "".to_string(),
@@ -139,20 +140,20 @@ impl ToSgf for Move {
     }
 }
 
-impl ToSgf for Text {
+impl ToSgfPropValueString for Text {
     fn to_sgf(&self) -> String {
         escape_string(&self.text)
     }
 }
 
-impl ToSgf for SimpleText {
+impl ToSgfPropValueString for SimpleText {
     fn to_sgf(&self) -> String {
         escape_string(&self.text)
     }
 }
 
-impl ToSgf for SgfProp {
-    fn to_sgf(&self) -> String {
+impl fmt::Display for SgfProp {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let prop_string = match self {
             Self::B(x) => x.to_sgf(),
             Self::KO => "".to_string(),
@@ -223,7 +224,7 @@ impl ToSgf for SgfProp {
             Self::VW(x) => x.to_sgf(),
             Self::Unknown(_, x) => x.to_sgf(),
         };
-        format!("{}[{}]", self.identifier(), prop_string)
+        write!(f, "{}[{}]", self.identifier(), prop_string)
     }
 }
 
