@@ -14,7 +14,13 @@ impl std::fmt::Display for SgfParseError {
         match self {
             Self::InvalidNode(s) => write!(f, "Invalid Node: {}", s),
             Self::InvalidNodeProps(props) => write!(f, "Invalid Node Properties: {:?}", props),
-            Self::ParseError(s) => write!(f, "Parsing error at '{}'", &s[..20]),
+            Self::ParseError(s) => {
+                let context = s.chars().take(20).collect::<String>();
+                match context.len() {
+                    0 => write!(f, "Unexpected end of file"),
+                    _ => write!(f, "Parsing error at '{}'", context),
+                }
+            }
             Self::InvalidPropertyValue => write!(f, "Invalid Property Value"),
         }
     }
