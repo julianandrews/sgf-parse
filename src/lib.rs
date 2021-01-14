@@ -7,6 +7,7 @@
 //! [serialize](fn.serialize.html). See `SgfNodeBuilder` and `SgfNode::to_builder`.
 
 mod errors;
+mod lexer;
 mod parser;
 mod props;
 mod serialize;
