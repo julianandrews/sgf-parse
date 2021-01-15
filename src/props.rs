@@ -261,7 +261,7 @@ impl SgfProp {
             "CA" => Ok(Self::CA(parse_single_simple_text_value(&values)?)),
             "FF" => {
                 let value = parse_single_value(&values)?;
-                if value < 0 || value > 4 {
+                if !(0..=4).contains(&value) {
                     return Err(SgfParseError::InvalidPropertyValue);
                 }
                 Ok(Self::FF(value))
@@ -276,7 +276,7 @@ impl SgfProp {
             }
             "ST" => {
                 let value = parse_single_value(&values)?;
-                if value < 0 || value > 3 {
+                if !(0..=3).contains(&value) {
                     return Err(SgfParseError::InvalidPropertyValue);
                 }
                 Ok(Self::ST(value))
@@ -318,7 +318,7 @@ impl SgfProp {
             "FG" => Ok(Self::FG(parse_figure(&values)?)),
             "PM" => {
                 let value = parse_single_value(&values)?;
-                if value < 1 || value > 2 {
+                if !(1..=2).contains(&value) {
                     return Err(SgfParseError::InvalidPropertyValue);
                 }
                 Ok(Self::PM(value))
@@ -661,7 +661,7 @@ fn parse_labels(values: &[String]) -> Result<HashSet<(Point, SimpleText)>, SgfPa
 }
 
 fn parse_figure(values: &[String]) -> Result<Option<(i64, SimpleText)>, SgfParseError> {
-    if values.is_empty() || (values.len() == 1 && values[0] == "") {
+    if values.is_empty() || (values.len() == 1 && values[0].is_empty()) {
         return Ok(None);
     }
     if values.len() > 1 {
