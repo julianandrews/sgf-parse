@@ -279,16 +279,42 @@ impl SgfNodeBuilder {
     /// # Errors
     /// If the `SgfNode` or any of its children are invalid, then an error is returned.
     pub fn build(self) -> Result<SgfNode, SgfParseError> {
-        let Self {
-            properties,
-            children,
-            is_root,
-        } = self;
-        let children = children
-            .into_iter()
-            .map(Self::build)
-            .collect::<Result<Vec<_>, _>>()?;
+        // The obvious simple recursive approach can lead to a stack overflow, so we'll need to get
+        // a little fancy.
+        use core::cell::RefCell;
+        use std::rc::Rc;
 
-        SgfNode::new(properties, children, is_root)
+        let mut node_parts = vec![];
+
+        // First traverse the tree associating the information needed to build an `SgfNode`
+        // with a pointer to its parent's vector of children.
+        let mut dfs_stack = vec![(self, None)];
+        while let Some((node, parent_children)) = dfs_stack.pop() {
+            let Self {
+                properties,
+                children,
+                is_root,
+            } = node;
+            let built_children: Rc<RefCell<Vec<SgfNode>>> = Rc::new(RefCell::new(vec![]));
+            for child in children {
+                dfs_stack.push((child, Some(built_children.clone())));
+            }
+            node_parts.push((properties, built_children, is_root, parent_children));
+        }
+
+        // Now walk through the tree backwards building nodes and pushing them onto their parents'
+        // child node vectors.
+        for (properties, children, is_root, parent_children) in node_parts.into_iter().rev() {
+            let children = Rc::try_unwrap(children)
+                .expect("All children should already be built")
+                .into_inner();
+            let new_node = SgfNode::new(properties, children, is_root)?;
+            if let Some(parent_children) = parent_children {
+                parent_children.borrow_mut().push(new_node);
+            } else {
+                return Ok(new_node);
+            }
+        }
+        unreachable!("The first node must have no parent")
     }
 }
