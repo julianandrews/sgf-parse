@@ -2,6 +2,7 @@ use std::ptr::NonNull;
 
 use super::errors::SgfParseError;
 use super::lexer::{Lexer, Token};
+use super::props::SgfProp;
 use super::sgf_node::{SgfNode, SgfNodeBuilder};
 
 /// Returns a Vector of the root `SgfNodes` parsed from the provided text.
@@ -64,9 +65,17 @@ pub fn parse(text: &str) -> Result<Vec<SgfNode>, SgfParseError> {
             },
             Token::StartNode => {
                 let mut new_node = SgfNodeBuilder::new();
-                while let Some(Ok((Token::Property(prop), _))) = lexer.peek() {
-                    new_node.properties.push(prop.clone());
-                    lexer.next();
+                let mut prop_tokens = vec![];
+                while let Some(Ok((Token::Property(_), _))) = lexer.peek() {
+                    prop_tokens.push(lexer.next().unwrap()?);
+                }
+                for token in prop_tokens {
+                    match token {
+                        (Token::Property((identifier, values)), _) => {
+                            new_node.properties.push(SgfProp::new(identifier, values))
+                        }
+                        _ => unreachable!(),
+                    }
                 }
                 let node_list = unsafe { current_node_list_ptr.as_mut() };
                 node_list.push(new_node);

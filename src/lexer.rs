@@ -1,12 +1,11 @@
 use super::errors::SgfParseError;
-use super::SgfProp;
 
 #[derive(Debug, PartialEq)]
 pub enum Token {
     StartGameTree,
     EndGameTree,
     StartNode,
-    Property(SgfProp),
+    Property((String, Vec<String>)),
 }
 
 pub struct Lexer<'a> {
@@ -38,11 +37,8 @@ impl<'a> Lexer<'a> {
         self.text[self.cursor..].chars().next()
     }
 
-    fn get_property(&mut self) -> Result<SgfProp, SgfParseError> {
-        Ok(SgfProp::new(
-            self.get_prop_ident()?,
-            self.get_prop_values()?,
-        ))
+    fn get_property(&mut self) -> Result<(String, Vec<String>), SgfParseError> {
+        Ok((self.get_prop_ident()?, self.get_prop_values()?))
     }
 
     fn get_prop_ident(&mut self) -> Result<String, SgfParseError> {
@@ -142,9 +138,7 @@ impl<'a> Iterator for Lexer<'a> {
 
 #[cfg(test)]
 mod test {
-    use super::super::props::*;
     use super::Lexer;
-    use super::SgfProp::*;
     use super::Token::*;
 
     #[test]
@@ -154,23 +148,21 @@ mod test {
         let expected = vec![
             (StartGameTree, 0..1),
             (StartNode, 1..2),
-            (Property(SZ((9, 9))), 2..7),
+            (Property(("SZ".to_string(), vec!["9".to_string()])), 2..7),
             (
-                Property(C(Text {
-                    text: "Some comment".to_string(),
-                })),
+                Property(("C".to_string(), vec!["Some comment".to_string()])),
                 7..22,
             ),
             (StartNode, 22..23),
-            (Property(B(Move::Move(Point { x: 3, y: 4 }))), 23..28),
+            (Property(("B".to_string(), vec!["de".to_string()])), 23..28),
             (StartNode, 28..29),
-            (Property(W(Move::Move(Point { x: 5, y: 4 }))), 29..34),
+            (Property(("W".to_string(), vec!["fe".to_string()])), 29..34),
             (EndGameTree, 34..35),
             (StartGameTree, 35..36),
             (StartNode, 36..37),
-            (Property(B(Move::Move(Point { x: 3, y: 4 }))), 37..42),
+            (Property(("B".to_string(), vec!["de".to_string()])), 37..42),
             (StartNode, 42..43),
-            (Property(W(Move::Move(Point { x: 5, y: 5 }))), 43..48),
+            (Property(("W".to_string(), vec!["ff".to_string()])), 43..48),
             (EndGameTree, 48..49),
         ];
         let tokens: Vec<_> = lexer.collect::<Result<_, _>>().unwrap();
