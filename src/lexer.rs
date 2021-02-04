@@ -39,7 +39,10 @@ impl<'a> Lexer<'a> {
     }
 
     fn get_property(&mut self) -> Result<SgfProp, SgfParseError> {
-        SgfProp::new(self.get_prop_ident()?, self.get_prop_values()?)
+        Ok(SgfProp::new(
+            self.get_prop_ident()?,
+            self.get_prop_values()?,
+        ))
     }
 
     fn get_prop_ident(&mut self) -> Result<String, SgfParseError> {

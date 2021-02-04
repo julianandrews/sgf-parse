@@ -29,7 +29,7 @@ impl SgfNode {
     ///
     /// let children = vec![
     ///     SgfNode::new(
-    ///         vec![SgfProp::new("B".to_string(), vec!["dd".to_string()]).unwrap()],
+    ///         vec![SgfProp::new("B".to_string(), vec!["dd".to_string()])],
     ///         vec![],
     ///         false,
     ///     ).unwrap()
@@ -135,7 +135,7 @@ impl SgfNode {
     /// use sgf_parse::{parse, serialize, SgfProp};
     ///
     /// let node = parse("(;SZ[13:13];B[de])").unwrap().into_iter().next().unwrap();
-    /// let new_prop = SgfProp::new("C".to_string(), vec!["New comment".to_string()]).unwrap();
+    /// let new_prop = SgfProp::new("C".to_string(), vec!["New comment".to_string()]);
     /// let mut builder = node.into_builder();
     /// builder.properties.push(new_prop);
     /// let new_node = builder.build();
@@ -251,9 +251,9 @@ fn validate_node_props(props: &[SgfProp]) -> Result<(bool, bool), SgfParseError>
 /// use sgf_parse::{serialize, SgfNodeBuilder, SgfProp};
 ///
 /// let mut node = SgfNodeBuilder::new();
-/// node.properties.push(SgfProp::new("B".to_string(), vec!["jj".to_string()]).unwrap());
+/// node.properties.push(SgfProp::new("B".to_string(), vec!["jj".to_string()]));
 /// let mut child = SgfNodeBuilder::new();
-/// child.properties.push(SgfProp::new("W".to_string(), vec!["cd".to_string()]).unwrap());
+/// child.properties.push(SgfProp::new("W".to_string(), vec!["cd".to_string()]));
 /// node.children.push(child);
 ///
 /// let node = node.build();

@@ -223,6 +223,7 @@ impl fmt::Display for SgfProp {
             Self::PM(x) => x.to_sgf(),
             Self::VW(x) => x.to_sgf(),
             Self::Unknown(_, x) => x.to_sgf(),
+            Self::Invalid(_, x) => x.to_sgf(),
         };
         write!(f, "{}[{}]", self.identifier(), prop_string)
     }

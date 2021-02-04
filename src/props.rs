@@ -206,6 +206,7 @@ pub enum SgfProp {
     TB(HashSet<Point>),
     TW(HashSet<Point>),
     Unknown(String, Vec<String>),
+    Invalid(String, Vec<String>),
 }
 
 impl SgfProp {
@@ -226,108 +227,114 @@ impl SgfProp {
     /// // SgfProp::Unknown("FOO", vec!["Text"])
     /// let prop = SgfProp::new("FOO".to_string(), vec!["Text".to_string()]);
     /// ```
-    pub fn new(identifier: String, values: Vec<String>) -> Result<Self, SgfParseError> {
-        match &identifier[..] {
-            "B" => Ok(Self::B(parse_single_value(&values)?)),
-            "KO" => verify_empty(&values).map(|()| Ok(Self::KO))?,
-            "MN" => Ok(Self::MN(parse_single_value(&values)?)),
-            "W" => Ok(Self::W(parse_single_value(&values)?)),
-            "AB" => Ok(Self::AB(parse_list_point(&values)?)),
-            "AE" => Ok(Self::AE(parse_list_point(&values)?)),
-            "AW" => Ok(Self::AW(parse_list_point(&values)?)),
-            "PL" => Ok(Self::PL(parse_single_value(&values)?)),
-            "C" => Ok(Self::C(parse_single_text_value(&values)?)),
-            "DM" => Ok(Self::DM(parse_single_value(&values)?)),
-            "GB" => Ok(Self::GB(parse_single_value(&values)?)),
-            "GW" => Ok(Self::GW(parse_single_value(&values)?)),
-            "HO" => Ok(Self::HO(parse_single_value(&values)?)),
-            "N" => Ok(Self::N(parse_single_simple_text_value(&values)?)),
-            "UC" => Ok(Self::UC(parse_single_value(&values)?)),
-            "V" => Ok(Self::V(parse_single_value(&values)?)),
-            "DO" => verify_empty(&values).map(|()| Ok(Self::DO))?,
-            "IT" => verify_empty(&values).map(|()| Ok(Self::IT))?,
-            "BM" => Ok(Self::BM(parse_single_value(&values)?)),
-            "TE" => Ok(Self::TE(parse_single_value(&values)?)),
-            "AR" => Ok(Self::AR(parse_list_composed_point(&values)?)),
-            "CR" => Ok(Self::CR(parse_list_point(&values)?)),
-            "DD" => Ok(Self::DD(parse_elist_point(&values)?)),
-            "LB" => Ok(Self::LB(parse_labels(&values)?)),
-            "LN" => Ok(Self::LN(parse_list_composed_point(&values)?)),
-            "MA" => Ok(Self::MA(parse_list_point(&values)?)),
-            "SL" => Ok(Self::SL(parse_list_point(&values)?)),
-            "SQ" => Ok(Self::SQ(parse_list_point(&values)?)),
-            "TR" => Ok(Self::TR(parse_list_point(&values)?)),
-            "AP" => Ok(Self::AP(parse_application(&values)?)),
-            "CA" => Ok(Self::CA(parse_single_simple_text_value(&values)?)),
-            "FF" => {
-                let value = parse_single_value(&values)?;
-                if !(0..=4).contains(&value) {
-                    return Err(SgfParseError::InvalidPropertyValue);
+    pub fn new(identifier: String, values: Vec<String>) -> Self {
+        let result = match &identifier[..] {
+            "B" => parse_single_value(&values).map(|value| Self::B(value)),
+            "KO" => verify_empty(&values).map(|()| Self::KO),
+            "MN" => parse_single_value(&values).map(|value| Self::MN(value)),
+            "W" => parse_single_value(&values).map(|value| Self::W(value)),
+            "AB" => parse_list_point(&values).map(|values| Self::AB(values)),
+            "AE" => parse_list_point(&values).map(|values| Self::AE(values)),
+            "AW" => parse_list_point(&values).map(|values| Self::AW(values)),
+            "PL" => parse_single_value(&values).map(|value| Self::PL(value)),
+            "C" => parse_single_text_value(&values).map(|value| Self::C(value)),
+            "DM" => parse_single_value(&values).map(|value| Self::DM(value)),
+            "GB" => parse_single_value(&values).map(|value| Self::GB(value)),
+            "GW" => parse_single_value(&values).map(|value| Self::GW(value)),
+            "HO" => parse_single_value(&values).map(|value| Self::HO(value)),
+            "N" => parse_single_simple_text_value(&values).map(|value| Self::N(value)),
+            "UC" => parse_single_value(&values).map(|value| Self::UC(value)),
+            "V" => parse_single_value(&values).map(|value| Self::V(value)),
+            "DO" => verify_empty(&values).map(|()| Self::DO),
+            "IT" => verify_empty(&values).map(|()| Self::IT),
+            "BM" => parse_single_value(&values).map(|value| Self::BM(value)),
+            "TE" => parse_single_value(&values).map(|value| Self::TE(value)),
+            "AR" => parse_list_composed_point(&values).map(|values| Self::AR(values)),
+            "CR" => parse_list_point(&values).map(|values| Self::CR(values)),
+            "DD" => parse_elist_point(&values).map(|values| Self::DD(values)),
+            "LB" => parse_labels(&values).map(|values| Self::LB(values)),
+            "LN" => parse_list_composed_point(&values).map(|values| Self::LN(values)),
+            "MA" => parse_list_point(&values).map(|values| Self::MA(values)),
+            "SL" => parse_list_point(&values).map(|values| Self::SL(values)),
+            "SQ" => parse_list_point(&values).map(|values| Self::SQ(values)),
+            "TR" => parse_list_point(&values).map(|values| Self::TR(values)),
+            "AP" => parse_application(&values).map(|value| Self::AP(value)),
+            "CA" => parse_single_simple_text_value(&values).map(|value| Self::CA(value)),
+            "FF" => match parse_single_value(&values) {
+                Ok(value) => {
+                    if !(0..=4).contains(&value) {
+                        Err(SgfParseError::InvalidPropertyValue)
+                    } else {
+                        Ok(Self::FF(value))
+                    }
                 }
-                Ok(Self::FF(value))
-            }
-            "GM" => {
-                let value = parse_single_value(&values)?;
-                // Only Go is supported
-                if value != 1 {
-                    return Err(SgfParseError::InvalidPropertyValue);
+                _ => Err(SgfParseError::InvalidPropertyValue),
+            },
+            "GM" => parse_single_value(&values).map(|value| Self::GM(value)),
+            "ST" => match parse_single_value(&values) {
+                Ok(value) => {
+                    if !(0..=3).contains(&value) {
+                        Err(SgfParseError::InvalidPropertyValue)
+                    } else {
+                        Ok(Self::ST(value))
+                    }
                 }
-                Ok(Self::GM(value))
-            }
-            "ST" => {
-                let value = parse_single_value(&values)?;
-                if !(0..=3).contains(&value) {
-                    return Err(SgfParseError::InvalidPropertyValue);
+                _ => Err(SgfParseError::InvalidPropertyValue),
+            },
+            "SZ" => parse_size(&values).map(|value| Self::SZ(value)),
+            "HA" => match parse_single_value(&values) {
+                Ok(value) => {
+                    if value < 2 {
+                        Err(SgfParseError::InvalidPropertyValue)
+                    } else {
+                        Ok(Self::HA(value))
+                    }
                 }
-                Ok(Self::ST(value))
-            }
-            "SZ" => Ok(Self::SZ(parse_size(&values)?)),
-            "HA" => {
-                let value: i64 = parse_single_value(&values)?;
-                if !value >= 2 {
-                    return Err(SgfParseError::InvalidPropertyValue);
+                _ => Err(SgfParseError::InvalidPropertyValue),
+            },
+            "KM" => parse_single_value(&values).map(|value| Self::KM(value)),
+            "AN" => parse_single_simple_text_value(&values).map(|value| Self::AN(value)),
+            "BR" => parse_single_simple_text_value(&values).map(|value| Self::BR(value)),
+            "BT" => parse_single_simple_text_value(&values).map(|value| Self::BT(value)),
+            "CP" => parse_single_simple_text_value(&values).map(|value| Self::CP(value)),
+            "DT" => parse_single_simple_text_value(&values).map(|value| Self::DT(value)),
+            "EV" => parse_single_simple_text_value(&values).map(|value| Self::EV(value)),
+            "GN" => parse_single_simple_text_value(&values).map(|value| Self::GN(value)),
+            "GC" => parse_single_text_value(&values).map(|value| Self::GC(value)),
+            "ON" => parse_single_simple_text_value(&values).map(|value| Self::ON(value)),
+            "OT" => parse_single_simple_text_value(&values).map(|value| Self::OT(value)),
+            "PB" => parse_single_simple_text_value(&values).map(|value| Self::PB(value)),
+            "PC" => parse_single_simple_text_value(&values).map(|value| Self::PC(value)),
+            "PW" => parse_single_simple_text_value(&values).map(|value| Self::PW(value)),
+            "RE" => parse_single_simple_text_value(&values).map(|value| Self::RE(value)),
+            "RO" => parse_single_simple_text_value(&values).map(|value| Self::RO(value)),
+            "RU" => parse_single_simple_text_value(&values).map(|value| Self::RU(value)),
+            "SO" => parse_single_simple_text_value(&values).map(|value| Self::SO(value)),
+            "TM" => parse_single_value(&values).map(|value| Self::TM(value)),
+            "US" => parse_single_simple_text_value(&values).map(|value| Self::US(value)),
+            "WR" => parse_single_simple_text_value(&values).map(|value| Self::WR(value)),
+            "WT" => parse_single_simple_text_value(&values).map(|value| Self::WT(value)),
+            "BL" => parse_single_value(&values).map(|value| Self::BL(value)),
+            "OB" => parse_single_value(&values).map(|value| Self::OB(value)),
+            "OW" => parse_single_value(&values).map(|value| Self::OW(value)),
+            "WL" => parse_single_value(&values).map(|value| Self::WL(value)),
+            "FG" => parse_figure(&values).map(|value| Self::FG(value)),
+            "PM" => match parse_single_value(&values) {
+                Ok(value) => {
+                    if !(1..=2).contains(&value) {
+                        Err(SgfParseError::InvalidPropertyValue)
+                    } else {
+                        Ok(Self::PM(value))
+                    }
                 }
-                Ok(Self::HA(value))
-            }
-            "KM" => Ok(Self::KM(parse_single_value(&values)?)),
-            "AN" => Ok(Self::AN(parse_single_simple_text_value(&values)?)),
-            "BR" => Ok(Self::BR(parse_single_simple_text_value(&values)?)),
-            "BT" => Ok(Self::BT(parse_single_simple_text_value(&values)?)),
-            "CP" => Ok(Self::CP(parse_single_simple_text_value(&values)?)),
-            "DT" => Ok(Self::DT(parse_single_simple_text_value(&values)?)),
-            "EV" => Ok(Self::EV(parse_single_simple_text_value(&values)?)),
-            "GN" => Ok(Self::GN(parse_single_simple_text_value(&values)?)),
-            "GC" => Ok(Self::GC(parse_single_text_value(&values)?)),
-            "ON" => Ok(Self::ON(parse_single_simple_text_value(&values)?)),
-            "OT" => Ok(Self::OT(parse_single_simple_text_value(&values)?)),
-            "PB" => Ok(Self::PB(parse_single_simple_text_value(&values)?)),
-            "PC" => Ok(Self::PC(parse_single_simple_text_value(&values)?)),
-            "PW" => Ok(Self::PW(parse_single_simple_text_value(&values)?)),
-            "RE" => Ok(Self::RE(parse_single_simple_text_value(&values)?)),
-            "RO" => Ok(Self::RO(parse_single_simple_text_value(&values)?)),
-            "RU" => Ok(Self::RU(parse_single_simple_text_value(&values)?)),
-            "SO" => Ok(Self::SO(parse_single_simple_text_value(&values)?)),
-            "TM" => Ok(Self::TM(parse_single_value(&values)?)),
-            "US" => Ok(Self::US(parse_single_simple_text_value(&values)?)),
-            "WR" => Ok(Self::WR(parse_single_simple_text_value(&values)?)),
-            "WT" => Ok(Self::WT(parse_single_simple_text_value(&values)?)),
-            "BL" => Ok(Self::BL(parse_single_value(&values)?)),
-            "OB" => Ok(Self::OB(parse_single_value(&values)?)),
-            "OW" => Ok(Self::OW(parse_single_value(&values)?)),
-            "WL" => Ok(Self::WL(parse_single_value(&values)?)),
-            "FG" => Ok(Self::FG(parse_figure(&values)?)),
-            "PM" => {
-                let value = parse_single_value(&values)?;
-                if !(1..=2).contains(&value) {
-                    return Err(SgfParseError::InvalidPropertyValue);
-                }
-                Ok(Self::PM(value))
-            }
-            "VW" => Ok(Self::VW(parse_elist_point(&values)?)),
-            "TB" => Ok(Self::TB(parse_elist_point(&values)?)),
-            "TW" => Ok(Self::TW(parse_elist_point(&values)?)),
-            _ => Ok(Self::Unknown(identifier, values)),
-        }
+                _ => Err(SgfParseError::InvalidPropertyValue),
+            },
+            "VW" => parse_elist_point(&values).map(|values| Self::VW(values)),
+            "TB" => parse_elist_point(&values).map(|values| Self::TB(values)),
+            "TW" => parse_elist_point(&values).map(|values| Self::TW(values)),
+            _ => return Self::Unknown(identifier, values),
+        };
+        result.unwrap_or(Self::Invalid(identifier, values))
     }
 
     /// Returns a the identifier associated with the `SgfProp`.
@@ -336,9 +343,9 @@ impl SgfProp {
     /// ```
     /// use sgf_parse::SgfProp;
     ///
-    /// let prop = SgfProp::new("W".to_string(), vec!["de".to_string()]).unwrap();
+    /// let prop = SgfProp::new("W".to_string(), vec!["de".to_string()]);
     /// assert_eq!(prop.identifier(), "W");
-    /// let prop = SgfProp::new("FOO".to_string(), vec!["de".to_string()]).unwrap();
+    /// let prop = SgfProp::new("FOO".to_string(), vec!["de".to_string()]);
     /// assert_eq!(prop.identifier(), "FOO");
     /// ```
     pub fn identifier(&self) -> String {
@@ -411,6 +418,7 @@ impl SgfProp {
             Self::TB(_) => "TB".to_string(),
             Self::TW(_) => "TW".to_string(),
             Self::Unknown(identifier, _) => identifier.to_string(),
+            Self::Invalid(identifier, _) => identifier.to_string(),
         }
     }
 
@@ -420,9 +428,9 @@ impl SgfProp {
     /// ```
     /// use sgf_parse::{SgfProp, PropertyType};
     ///
-    /// let prop = SgfProp::new("W".to_string(), vec!["de".to_string()]).unwrap();
+    /// let prop = SgfProp::new("W".to_string(), vec!["de".to_string()]);
     /// assert_eq!(prop.property_type(), Some(PropertyType::Move));
-    /// let prop = SgfProp::new("FOO".to_string(), vec!["de".to_string()]).unwrap();
+    /// let prop = SgfProp::new("FOO".to_string(), vec!["de".to_string()]);
     /// assert_eq!(prop.property_type(), None);
     /// ```
     pub fn property_type(&self) -> Option<PropertyType> {
