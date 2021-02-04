@@ -270,7 +270,7 @@ impl SgfProp {
                 }
                 _ => Err(SgfParseError::InvalidPropertyValue),
             },
-            "GM" => parse_single_value(&values).map(|value| Self::GM(value)),
+            "GM" => parse_single_value(&values).map(Self::GM),
             "ST" => match parse_single_value(&values) {
                 Ok(value) => {
                     if !(0..=3).contains(&value) {
@@ -281,7 +281,7 @@ impl SgfProp {
                 }
                 _ => Err(SgfParseError::InvalidPropertyValue),
             },
-            "SZ" => parse_size(&values).map(|value| Self::SZ(value)),
+            "SZ" => parse_size(&values).map(Self::SZ),
             "HA" => match parse_single_value(&values) {
                 Ok(value) => {
                     if value < 2 {
