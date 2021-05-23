@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 use std::fmt;
 
-use super::{Color, Double, Move, Point, SgfNode, SgfProp, SimpleText, Text};
+use super::{props, SgfNode};
 
 /// Returns the SGF as a `String` from a collection of `SgfNode` objects.
 ///
@@ -65,7 +65,7 @@ impl ToSgfPropValueString for Vec<String> {
     }
 }
 
-impl ToSgfPropValueString for HashSet<Point> {
+impl ToSgfPropValueString for HashSet<props::Point> {
     fn to_sgf(&self) -> String {
         self.iter()
             .map(|x| x.to_sgf())
@@ -107,7 +107,7 @@ impl ToSgfPropValueString for f64 {
     }
 }
 
-impl ToSgfPropValueString for Double {
+impl ToSgfPropValueString for props::Double {
     fn to_sgf(&self) -> String {
         match self {
             Self::One => "1".to_string(),
@@ -116,7 +116,7 @@ impl ToSgfPropValueString for Double {
     }
 }
 
-impl ToSgfPropValueString for Color {
+impl ToSgfPropValueString for props::Color {
     fn to_sgf(&self) -> String {
         match self {
             Self::Black => "B".to_string(),
@@ -125,13 +125,13 @@ impl ToSgfPropValueString for Color {
     }
 }
 
-impl ToSgfPropValueString for Point {
+impl ToSgfPropValueString for props::Point {
     fn to_sgf(&self) -> String {
         format!("{}{}", (self.x + b'a') as char, (self.y + b'a') as char)
     }
 }
 
-impl ToSgfPropValueString for Move {
+impl ToSgfPropValueString for props::Move {
     fn to_sgf(&self) -> String {
         match self {
             Self::Pass => "".to_string(),
@@ -140,19 +140,19 @@ impl ToSgfPropValueString for Move {
     }
 }
 
-impl ToSgfPropValueString for Text {
+impl ToSgfPropValueString for props::Text {
     fn to_sgf(&self) -> String {
         escape_string(&self.text)
     }
 }
 
-impl ToSgfPropValueString for SimpleText {
+impl ToSgfPropValueString for props::SimpleText {
     fn to_sgf(&self) -> String {
         escape_string(&self.text)
     }
 }
 
-impl fmt::Display for SgfProp {
+impl fmt::Display for props::SgfProp {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let prop_string = match self {
             Self::B(x) => x.to_sgf(),

@@ -2,8 +2,6 @@ use std::collections::HashSet;
 use std::fmt;
 use std::str::FromStr;
 
-use super::SgfParseError;
-
 /// An SGF [Double](https://www.red-bean.com/sgf/sgf4.html#double) value.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Double {
@@ -31,7 +29,7 @@ pub struct Point {
 ///
 /// # Examples
 /// ```
-/// use sgf_parse::{parse, SgfProp, Move};
+/// use sgf_parse::{parse, Move, SgfProp};
 ///
 /// let node = parse("(;B[de])").unwrap().into_iter().next().unwrap();
 /// for prop in node.properties() {
@@ -78,6 +76,7 @@ impl fmt::Display for Text {
 /// # Examples
 /// ```
 /// use sgf_parse::SimpleText;
+///
 /// let text = SimpleText { text: "Comment:\nall whitespace\treplaced".to_string() };
 /// assert_eq!(format!("{}", text), "Comment: all whitespace replaced");
 /// ```
@@ -97,7 +96,7 @@ impl fmt::Display for SimpleText {
     }
 }
 
-/// An SGF [Property Type](https://www.red-bean.com/sgf/sgf4.html#2.2.1).
+/// An SGF [property type](https://www.red-bean.com/sgf/sgf4.html#2.2.1).
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum PropertyType {
     Move,
@@ -114,7 +113,7 @@ pub enum PropertyType {
 /// return the approprite enum instance with parsed data. Unrecognized properties, or properties
 /// from other games will return `Unknown(identifier, values)`.
 ///
-/// See [Property Value Types](https://www.red-bean.com/sgf/sgf4.html#types) for a list of types
+/// See [property value types](https://www.red-bean.com/sgf/sgf4.html#types) for a list of types
 /// recognized by SGF. For parsing purposes the following mappings are used:
 /// * 'Number' => [i64](https://doc.rust-lang.org/std/primitive.i64.html)
 /// * 'Real' => [f64](https://doc.rust-lang.org/std/primitive.f64.html)
@@ -213,7 +212,7 @@ impl SgfProp {
     /// Returns a new property parsed from the provided identifier and values
     ///
     /// # Errors
-    /// If the identifier is a recognized SGF FF[4] property type and the provided values aren't
+    /// If the identifier is a recognized SGF FF\[4\] property type and the provided values aren't
     /// correct for that property type, then an error is returned.
     ///
     /// # Examples
@@ -263,34 +262,34 @@ impl SgfProp {
             "FF" => match parse_single_value(&values) {
                 Ok(value) => {
                     if !(0..=4).contains(&value) {
-                        Err(SgfParseError::InvalidPropertyValue)
+                        Err(SgfPropError {})
                     } else {
                         Ok(Self::FF(value))
                     }
                 }
-                _ => Err(SgfParseError::InvalidPropertyValue),
+                _ => Err(SgfPropError {}),
             },
             "GM" => parse_single_value(&values).map(Self::GM),
             "ST" => match parse_single_value(&values) {
                 Ok(value) => {
                     if !(0..=3).contains(&value) {
-                        Err(SgfParseError::InvalidPropertyValue)
+                        Err(SgfPropError {})
                     } else {
                         Ok(Self::ST(value))
                     }
                 }
-                _ => Err(SgfParseError::InvalidPropertyValue),
+                _ => Err(SgfPropError {}),
             },
             "SZ" => parse_size(&values).map(Self::SZ),
             "HA" => match parse_single_value(&values) {
                 Ok(value) => {
                     if value < 2 {
-                        Err(SgfParseError::InvalidPropertyValue)
+                        Err(SgfPropError {})
                     } else {
                         Ok(Self::HA(value))
                     }
                 }
-                _ => Err(SgfParseError::InvalidPropertyValue),
+                _ => Err(SgfPropError {}),
             },
             "KM" => parse_single_value(&values).map(Self::KM),
             "AN" => parse_single_simple_text_value(&values).map(Self::AN),
@@ -322,12 +321,12 @@ impl SgfProp {
             "PM" => match parse_single_value(&values) {
                 Ok(value) => {
                     if !(1..=2).contains(&value) {
-                        Err(SgfParseError::InvalidPropertyValue)
+                        Err(SgfPropError {})
                     } else {
                         Ok(Self::PM(value))
                     }
                 }
-                _ => Err(SgfParseError::InvalidPropertyValue),
+                _ => Err(SgfPropError {}),
             },
             "VW" => parse_elist_point(&values).map(Self::VW),
             "TB" => parse_elist_point(&values).map(Self::TB),
@@ -426,7 +425,7 @@ impl SgfProp {
     ///
     /// # Examples
     /// ```
-    /// use sgf_parse::{SgfProp, PropertyType};
+    /// use sgf_parse::{PropertyType, SgfProp};
     ///
     /// let prop = SgfProp::new("W".to_string(), vec!["de".to_string()]);
     /// assert_eq!(prop.property_type(), Some(PropertyType::Move));
@@ -488,25 +487,23 @@ impl SgfProp {
     }
 }
 
-fn verify_empty(values: &[String]) -> Result<(), SgfParseError> {
+fn verify_empty(values: &[String]) -> Result<(), SgfPropError> {
     if !(values.is_empty() || (values.len() == 1 && values[0].is_empty())) {
-        return Err(SgfParseError::InvalidPropertyValue);
+        return Err(SgfPropError {});
     }
     Ok(())
 }
 
-fn parse_single_value<T: FromStr>(values: &[String]) -> Result<T, SgfParseError> {
+fn parse_single_value<T: FromStr>(values: &[String]) -> Result<T, SgfPropError> {
     if values.len() != 1 {
-        return Err(SgfParseError::InvalidPropertyValue);
+        return Err(SgfPropError {});
     }
-    values[0]
-        .parse()
-        .map_err(|_| SgfParseError::InvalidPropertyValue)
+    values[0].parse().map_err(|_| SgfPropError {})
 }
 
-fn parse_single_text_value(values: &[String]) -> Result<Text, SgfParseError> {
+fn parse_single_text_value(values: &[String]) -> Result<Text, SgfPropError> {
     if values.len() != 1 {
-        return Err(SgfParseError::InvalidPropertyValue);
+        return Err(SgfPropError {});
     }
     Ok(Text {
         text: values[0].clone(),
@@ -555,37 +552,37 @@ fn format_text(s: &str) -> String {
     output.into_iter().collect()
 }
 
-fn parse_single_simple_text_value(values: &[String]) -> Result<SimpleText, SgfParseError> {
+fn parse_single_simple_text_value(values: &[String]) -> Result<SimpleText, SgfPropError> {
     if values.len() != 1 {
-        return Err(SgfParseError::InvalidPropertyValue);
+        return Err(SgfPropError {});
     }
     Ok(SimpleText {
         text: values[0].clone(),
     })
 }
 
-fn parse_list_point(values: &[String]) -> Result<HashSet<Point>, SgfParseError> {
+fn parse_list_point(values: &[String]) -> Result<HashSet<Point>, SgfPropError> {
     let points = parse_elist_point(values)?;
     if points.is_empty() {
-        return Err(SgfParseError::InvalidPropertyValue);
+        return Err(SgfPropError {});
     }
 
     Ok(points)
 }
 
-fn parse_elist_point(values: &[String]) -> Result<HashSet<Point>, SgfParseError> {
+fn parse_elist_point(values: &[String]) -> Result<HashSet<Point>, SgfPropError> {
     let mut points = HashSet::new();
     for value in values.iter() {
         if value.contains(':') {
             let (upper_left, lower_right): (Point, Point) = parse_tuple(value)?;
             if upper_left.x > lower_right.x || upper_left.y > lower_right.y {
-                return Err(SgfParseError::InvalidPropertyValue);
+                return Err(SgfPropError {});
             }
             for x in upper_left.x..=lower_right.x {
                 for y in upper_left.y..=lower_right.y {
                     let point = Point { x, y };
                     if points.contains(&point) {
-                        return Err(SgfParseError::InvalidPropertyValue);
+                        return Err(SgfPropError {});
                     }
                     points.insert(point);
                 }
@@ -593,7 +590,7 @@ fn parse_elist_point(values: &[String]) -> Result<HashSet<Point>, SgfParseError>
         } else {
             let point = value.parse()?;
             if points.contains(&point) {
-                return Err(SgfParseError::InvalidPropertyValue);
+                return Err(SgfPropError {});
             }
             points.insert(point);
         }
@@ -602,12 +599,12 @@ fn parse_elist_point(values: &[String]) -> Result<HashSet<Point>, SgfParseError>
     Ok(points)
 }
 
-fn parse_list_composed_point(values: &[String]) -> Result<HashSet<(Point, Point)>, SgfParseError> {
+fn parse_list_composed_point(values: &[String]) -> Result<HashSet<(Point, Point)>, SgfPropError> {
     let mut pairs = HashSet::new();
     for value in values.iter() {
         let pair = parse_tuple(value)?;
         if pair.0 == pair.1 || pairs.contains(&pair) {
-            return Err(SgfParseError::InvalidPropertyValue);
+            return Err(SgfPropError {});
         }
         pairs.insert(pair);
     }
@@ -615,80 +612,74 @@ fn parse_list_composed_point(values: &[String]) -> Result<HashSet<(Point, Point)
     Ok(pairs)
 }
 
-fn split_compose(value: &str) -> Result<(&str, &str), SgfParseError> {
+fn split_compose(value: &str) -> Result<(&str, &str), SgfPropError> {
     let parts: Vec<&str> = value.split(':').collect();
     if parts.len() != 2 {
-        return Err(SgfParseError::InvalidPropertyValue);
+        return Err(SgfPropError {});
     }
 
     Ok((parts[0], parts[1]))
 }
 
-fn parse_tuple<T1: FromStr, T2: FromStr>(value: &str) -> Result<(T1, T2), SgfParseError> {
+fn parse_tuple<T1: FromStr, T2: FromStr>(value: &str) -> Result<(T1, T2), SgfPropError> {
     let (s1, s2) = split_compose(value)?;
     Ok((
-        s1.parse()
-            .map_err(|_| SgfParseError::InvalidPropertyValue)?,
-        s2.parse()
-            .map_err(|_| SgfParseError::InvalidPropertyValue)?,
+        s1.parse().map_err(|_| SgfPropError {})?,
+        s2.parse().map_err(|_| SgfPropError {})?,
     ))
 }
 
-fn parse_size(values: &[String]) -> Result<(u8, u8), SgfParseError> {
+fn parse_size(values: &[String]) -> Result<(u8, u8), SgfPropError> {
     if values.len() != 1 {
-        return Err(SgfParseError::InvalidPropertyValue);
+        return Err(SgfPropError {});
     }
     let value = &values[0];
     if value.contains(':') {
         parse_tuple(value)
     } else {
-        let size = value
-            .parse()
-            .map_err(|_| SgfParseError::InvalidPropertyValue)?;
+        let size = value.parse().map_err(|_| SgfPropError {})?;
         Ok((size, size))
     }
 }
 
-fn parse_labels(values: &[String]) -> Result<HashSet<(Point, SimpleText)>, SgfParseError> {
+fn parse_labels(values: &[String]) -> Result<HashSet<(Point, SimpleText)>, SgfPropError> {
     let mut labels = HashSet::new();
     for value in values.iter() {
         let (s1, s2) = split_compose(value)?;
         labels.insert((
-            s1.parse()
-                .map_err(|_| SgfParseError::InvalidPropertyValue)?,
+            s1.parse().map_err(|_| SgfPropError {})?,
             SimpleText {
                 text: s2.to_string(),
             },
         ));
     }
     if labels.is_empty() {
-        return Err(SgfParseError::InvalidPropertyValue);
+        return Err(SgfPropError {});
     }
 
     Ok(labels)
 }
 
-fn parse_figure(values: &[String]) -> Result<Option<(i64, SimpleText)>, SgfParseError> {
+fn parse_figure(values: &[String]) -> Result<Option<(i64, SimpleText)>, SgfPropError> {
     if values.is_empty() || (values.len() == 1 && values[0].is_empty()) {
         return Ok(None);
     }
     if values.len() > 1 {
-        return Err(SgfParseError::InvalidPropertyValue);
+        return Err(SgfPropError {});
     }
     let (s1, s2) = split_compose(&values[0])?;
 
     Ok(Some((
-        s1.parse()
-            .map_err(|_| SgfParseError::InvalidPropertyValue)?,
+        s1.parse().map_err(|_| SgfPropError {})?,
         SimpleText {
             text: s2.to_string(),
         },
     )))
 }
 
-fn parse_application(values: &[String]) -> Result<(SimpleText, SimpleText), SgfParseError> {
+fn parse_application(values: &[String]) -> Result<(SimpleText, SimpleText), SgfPropError> {
     if values.len() != 1 {
-        return Err(SgfParseError::InvalidPropertyValue);
+        return Err(SgfPropError {});
     }
     let (s1, s2) = split_compose(&values[0])?;
     Ok((
@@ -702,7 +693,7 @@ fn parse_application(values: &[String]) -> Result<(SimpleText, SimpleText), SgfP
 }
 
 impl FromStr for Move {
-    type Err = SgfParseError;
+    type Err = SgfPropError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
@@ -713,22 +704,22 @@ impl FromStr for Move {
 }
 
 impl FromStr for Point {
-    type Err = SgfParseError;
+    type Err = SgfPropError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        fn map_char(c: char) -> Result<u8, SgfParseError> {
+        fn map_char(c: char) -> Result<u8, SgfPropError> {
             if c.is_ascii_lowercase() {
                 Ok(c as u8 - b'a')
             } else if c.is_ascii_uppercase() {
                 Ok(c as u8 - b'A')
             } else {
-                Err(SgfParseError::InvalidPropertyValue)
+                Err(SgfPropError {})
             }
         }
 
         let chars: Vec<char> = s.chars().collect();
         if chars.len() != 2 {
-            return Err(SgfParseError::InvalidPropertyValue);
+            return Err(SgfPropError {});
         }
 
         Ok(Self {
@@ -739,7 +730,7 @@ impl FromStr for Point {
 }
 
 impl FromStr for Double {
-    type Err = SgfParseError;
+    type Err = SgfPropError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s == "1" {
@@ -747,13 +738,13 @@ impl FromStr for Double {
         } else if s == "2" {
             Ok(Self::Two)
         } else {
-            Err(SgfParseError::InvalidPropertyValue)
+            Err(SgfPropError {})
         }
     }
 }
 
 impl FromStr for Color {
-    type Err = SgfParseError;
+    type Err = SgfPropError;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if s == "B" {
@@ -761,10 +752,22 @@ impl FromStr for Color {
         } else if s == "W" {
             Ok(Self::White)
         } else {
-            Err(SgfParseError::InvalidPropertyValue)
+            Err(SgfPropError {})
         }
     }
 }
+
+/// Error type for invalid SGF properties.
+#[derive(Debug)]
+pub struct SgfPropError {}
+
+impl std::fmt::Display for SgfPropError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "Invalid property value")
+    }
+}
+
+impl std::error::Error for SgfPropError {}
 
 #[cfg(test)]
 mod test {

@@ -1,4 +1,8 @@
-use super::errors::SgfParseError;
+pub fn tokenize(
+    text: &str,
+) -> impl Iterator<Item = Result<(Token, std::ops::Range<usize>), LexerError>> + '_ {
+    Lexer { text, cursor: 0 }
+}
 
 #[derive(Debug, PartialEq)]
 pub enum Token {
@@ -8,11 +12,29 @@ pub enum Token {
     Property((String, Vec<String>)),
 }
 
-pub fn tokenize(
-    text: &str,
-) -> impl Iterator<Item = Result<(Token, std::ops::Range<usize>), SgfParseError>> + '_ {
-    Lexer { text, cursor: 0 }
+/// Error type for failures to tokenize text.
+#[derive(Debug)]
+pub enum LexerError {
+    UnexpectedPropertyIdentifier,
+    MissingPropertyIdentifier,
+    UnexpectedEndOfProperty,
 }
+
+impl std::fmt::Display for LexerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LexerError::UnexpectedPropertyIdentifier => {
+                write!(f, "Unexpected property identifier value")
+            }
+            LexerError::MissingPropertyIdentifier => {
+                write!(f, "Missing property identifier")
+            }
+            LexerError::UnexpectedEndOfProperty => write!(f, "Unexpected end of property"),
+        }
+    }
+}
+
+impl std::error::Error for LexerError {}
 
 struct Lexer<'a> {
     text: &'a str,
@@ -39,11 +61,11 @@ impl<'a> Lexer<'a> {
         self.text[self.cursor..].chars().next()
     }
 
-    fn get_property(&mut self) -> Result<(String, Vec<String>), SgfParseError> {
+    fn get_property(&mut self) -> Result<(String, Vec<String>), LexerError> {
         Ok((self.get_prop_ident()?, self.get_prop_values()?))
     }
 
-    fn get_prop_ident(&mut self) -> Result<String, SgfParseError> {
+    fn get_prop_ident(&mut self) -> Result<String, LexerError> {
         let mut prop_ident = vec![];
         loop {
             match self.peek_char() {
@@ -52,23 +74,15 @@ impl<'a> Lexer<'a> {
                     self.cursor += 1;
                     prop_ident.push(c);
                 }
-                Some(_c) => {
-                    return Err(SgfParseError::ParseError(
-                        "Unexpected property identifier value".to_string(),
-                    ))
-                }
-                None => {
-                    return Err(SgfParseError::ParseError(
-                        "Missing property identified".to_string(),
-                    ))
-                }
+                Some(_c) => return Err(LexerError::UnexpectedEndOfProperty),
+                None => return Err(LexerError::MissingPropertyIdentifier),
             }
         }
 
         Ok(prop_ident.iter().collect())
     }
 
-    fn get_prop_values(&mut self) -> Result<Vec<String>, SgfParseError> {
+    fn get_prop_values(&mut self) -> Result<Vec<String>, LexerError> {
         let mut prop_values = vec![];
         loop {
             self.trim_leading_whitespace();
@@ -84,7 +98,7 @@ impl<'a> Lexer<'a> {
         Ok(prop_values)
     }
 
-    fn get_prop_value(&mut self) -> Result<String, SgfParseError> {
+    fn get_prop_value(&mut self) -> Result<String, LexerError> {
         let mut prop_value = vec![];
         let mut escaped = false;
         loop {
@@ -95,11 +109,7 @@ impl<'a> Lexer<'a> {
                     escaped = false;
                     prop_value.push(c);
                 }
-                None => {
-                    return Err(SgfParseError::ParseError(
-                        "Unexpected end of property".to_string(),
-                    ))
-                }
+                None => return Err(LexerError::UnexpectedEndOfProperty),
             }
         }
 
@@ -108,7 +118,7 @@ impl<'a> Lexer<'a> {
 }
 
 impl<'a> Iterator for Lexer<'a> {
-    type Item = Result<(Token, std::ops::Range<usize>), SgfParseError>;
+    type Item = Result<(Token, std::ops::Range<usize>), LexerError>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let span_start = self.cursor;

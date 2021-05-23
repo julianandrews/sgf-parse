@@ -11,7 +11,7 @@ use super::sgf_node::{SgfNode, SgfNodeBuilder};
 /// specification.
 ///
 /// # Errors
-/// If the text isn't a valid SGF FF[4] collection, then an error is returned.
+/// If the text isn't a valid SGF FF\[4\] collection, then an error is returned.
 ///
 /// # Examples
 /// ```
@@ -32,7 +32,7 @@ pub fn parse(text: &str) -> Result<Vec<SgfNode>, SgfParseError> {
     // Stack of pointers to incomplete `Vec`s of children.
     let mut incomplete_child_lists: Vec<NonNull<Vec<SgfNodeBuilder>>> = vec![];
     // Using pointers involves some unsafe calls, but should be ok here.
-    // Since pointers are always initialized from real structs, and thos structs
+    // Since pointers are always initialized from real structs, and those structs
     // live for the whole function body, our only safety concern is dangling pointers.
     //
     // Since we build the tree traversing depth-first those structs shouldn't be
@@ -48,20 +48,14 @@ pub fn parse(text: &str) -> Result<Vec<SgfNode>, SgfParseError> {
                 if let Some(node_list_ptr) = incomplete_child_lists.last() {
                     let node_list = unsafe { node_list_ptr.as_ref() };
                     if node_list.is_empty() {
-                        return Err(SgfParseError::ParseError(
-                            "Unexpected start of game tree".to_string(),
-                        ));
+                        return Err(SgfParseError::UnexpectedGameTreeStart);
                     }
                 }
                 incomplete_child_lists.push(current_node_list_ptr);
             }
             Token::EndGameTree => match incomplete_child_lists.pop() {
                 Some(node_list) => current_node_list_ptr = node_list,
-                None => {
-                    return Err(SgfParseError::ParseError(
-                        "Unexpected end of game tree".to_string(),
-                    ))
-                }
+                None => return Err(SgfParseError::UnexpectedGameTreeEnd),
             },
             Token::StartNode => {
                 let mut new_node = SgfNodeBuilder::new();
@@ -82,15 +76,11 @@ pub fn parse(text: &str) -> Result<Vec<SgfNode>, SgfParseError> {
                 current_node_list_ptr =
                     NonNull::new(&mut node_list.last_mut().unwrap().children).unwrap();
             }
-            Token::Property(_) => {
-                return Err(SgfParseError::ParseError("Unexpected property".to_string()))
-            }
+            Token::Property(_) => return Err(SgfParseError::UnexpectedProperty),
         }
     }
     if !incomplete_child_lists.is_empty() {
-        return Err(SgfParseError::ParseError(
-            "Unexpected end of data".to_string(),
-        ));
+        return Err(SgfParseError::UnexpectedEndOfData);
     }
 
     collection
@@ -100,6 +90,7 @@ pub fn parse(text: &str) -> Result<Vec<SgfNode>, SgfParseError> {
             node.build()
         })
         .collect::<Result<_, _>>()
+        .map_err(|e| e.into())
 }
 
 #[cfg(test)]

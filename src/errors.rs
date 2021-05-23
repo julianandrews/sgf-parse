@@ -1,27 +1,39 @@
-use super::SgfProp;
+pub use super::lexer::LexerError;
+pub use super::props::SgfPropError;
+pub use super::sgf_node::InvalidNodeError;
 
-/// Error type for all sgf parsing errors.
+/// Error type for failures parsing sgf from text.
 #[derive(Debug)]
 pub enum SgfParseError {
-    InvalidNode(String),
-    InvalidNodeProps(Vec<SgfProp>),
-    ParseError(String),
-    InvalidPropertyValue,
+    LexerError(LexerError),
+    NodeError(InvalidNodeError),
+    UnexpectedGameTreeStart,
+    UnexpectedGameTreeEnd,
+    UnexpectedProperty,
+    UnexpectedEndOfData,
+}
+
+impl From<LexerError> for SgfParseError {
+    fn from(error: LexerError) -> Self {
+        Self::LexerError(error)
+    }
+}
+
+impl From<InvalidNodeError> for SgfParseError {
+    fn from(error: InvalidNodeError) -> Self {
+        Self::NodeError(error)
+    }
 }
 
 impl std::fmt::Display for SgfParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            Self::InvalidNode(s) => write!(f, "Invalid Node: {}", s),
-            Self::InvalidNodeProps(props) => write!(f, "Invalid Node Properties: {:?}", props),
-            Self::ParseError(s) => {
-                let context = s.chars().take(20).collect::<String>();
-                match context.len() {
-                    0 => write!(f, "Unexpected end of file"),
-                    _ => write!(f, "Parsing error at '{}'", context),
-                }
-            }
-            Self::InvalidPropertyValue => write!(f, "Invalid Property Value"),
+            SgfParseError::LexerError(_) => todo!(),
+            SgfParseError::NodeError(_) => todo!(),
+            SgfParseError::UnexpectedGameTreeStart => write!(f, "Unexpected start of game tree"),
+            SgfParseError::UnexpectedGameTreeEnd => write!(f, "Unexpected end of game tree"),
+            SgfParseError::UnexpectedProperty => write!(f, "Unexpected property"),
+            SgfParseError::UnexpectedEndOfData => write!(f, "Unexpected end of data"),
         }
     }
 }
