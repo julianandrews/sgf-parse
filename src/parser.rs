@@ -1,7 +1,7 @@
 use std::ptr::NonNull;
 
 use super::errors::SgfParseError;
-use super::lexer::{Lexer, Token};
+use super::lexer::{tokenize, Token};
 use super::props::SgfProp;
 use super::sgf_node::{SgfNode, SgfNodeBuilder};
 
@@ -39,8 +39,8 @@ pub fn parse(text: &str) -> Result<Vec<SgfNode>, SgfParseError> {
     // modified while the pointer is live. Heap-allocated contents of their
     // `children` may be modified, but that shouldn't change anything.
 
-    let mut lexer = Lexer::new(text).peekable();
-    while let Some(result) = lexer.next() {
+    let mut tokens = tokenize(text).peekable();
+    while let Some(result) = tokens.next() {
         let (token, _span) = result?;
         match token {
             Token::StartGameTree => {
@@ -66,8 +66,8 @@ pub fn parse(text: &str) -> Result<Vec<SgfNode>, SgfParseError> {
             Token::StartNode => {
                 let mut new_node = SgfNodeBuilder::new();
                 let mut prop_tokens = vec![];
-                while let Some(Ok((Token::Property(_), _))) = lexer.peek() {
-                    prop_tokens.push(lexer.next().unwrap()?);
+                while let Some(Ok((Token::Property(_), _))) = tokens.peek() {
+                    prop_tokens.push(tokens.next().unwrap()?);
                 }
                 for token in prop_tokens {
                     match token {

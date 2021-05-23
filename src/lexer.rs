@@ -8,16 +8,18 @@ pub enum Token {
     Property((String, Vec<String>)),
 }
 
-pub struct Lexer<'a> {
+pub fn tokenize(
+    text: &str,
+) -> impl Iterator<Item = Result<(Token, std::ops::Range<usize>), SgfParseError>> + '_ {
+    Lexer { text, cursor: 0 }
+}
+
+struct Lexer<'a> {
     text: &'a str,
     cursor: usize,
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(text: &'a str) -> Self {
-        Lexer { text, cursor: 0 }
-    }
-
     fn trim_leading_whitespace(&mut self) {
         while self.cursor < self.text.len()
             && (self.text.as_bytes()[self.cursor] as char).is_ascii_whitespace()
@@ -138,13 +140,12 @@ impl<'a> Iterator for Lexer<'a> {
 
 #[cfg(test)]
 mod test {
-    use super::Lexer;
+    use super::tokenize;
     use super::Token::*;
 
     #[test]
     fn lexer() {
         let sgf = "(;SZ[9]C[Some comment];B[de];W[fe])(;B[de];W[ff])";
-        let lexer = Lexer::new(sgf);
         let expected = vec![
             (StartGameTree, 0..1),
             (StartNode, 1..2),
@@ -165,7 +166,7 @@ mod test {
             (Property(("W".to_string(), vec!["ff".to_string()])), 43..48),
             (EndGameTree, 48..49),
         ];
-        let tokens: Vec<_> = lexer.collect::<Result<_, _>>().unwrap();
+        let tokens: Vec<_> = tokenize(sgf).collect::<Result<_, _>>().unwrap();
 
         assert_eq!(tokens, expected);
     }
