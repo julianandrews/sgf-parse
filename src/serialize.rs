@@ -12,8 +12,8 @@ use crate::game::GameTree;
 /// use sgf_parse::{parse, serialize};
 ///
 /// let original = "(;SZ[13:13];B[de](;W[ef])(;W[de];B[ac]))";
-/// let nodes = parse(original).unwrap();
-/// let parsed = serialize(&nodes);
+/// let gametrees = parse(original).unwrap();
+/// let parsed = serialize(&gametrees);
 ///
 /// assert_eq!(parsed, original);
 /// ```
@@ -47,7 +47,6 @@ impl<G: Game> fmt::Display for SgfNode<G> {
     }
 }
 
-// Unknown properties.
 impl ToSgf for Vec<String> {
     fn to_sgf(&self) -> String {
         self.join("][")

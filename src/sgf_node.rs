@@ -18,18 +18,20 @@ impl<G: Game> SgfNode<G> {
     ///
     /// # Examples
     /// ```
-    /// use sgf_parse::{serialize, GoGame, SgfNode, SgfProp};
+    /// use sgf_parse::{serialize, SgfNode, SgfProp};
+    /// use sgf_parse::game::{GameTree, GoGame};
     ///
     /// let children = vec![
-    ///     SgfNode::new(
-    ///         vec![SgfProp::new("B".to_string(), vec!["dd".to_string()])],
-    ///         vec![],
+    ///     SgfNode::<GoGame>::new(
+    ///         vec![SgfProp::new("B".to_string(),
+    ///         vec!["dd".to_string()])], vec![],
     ///         false,
-    ///     );
+    ///     ),
     /// ];
     ///
-    /// let node = SgfNode<GoGame>::new(vec![SgfProp::SZ((19, 19))], children, true);
-    /// assert_eq!(serialize(std::iter::once(&node)), "(;SZ[19:19];B[dd])");
+    /// let node = SgfNode::new(vec![SgfProp::SZ((19, 19))], children, true);
+    /// let gametree = GameTree::GoGame(node);
+    /// assert_eq!(serialize(std::iter::once(&gametree)), "(;SZ[19:19];B[dd])");
     /// ```
     pub fn new(properties: Vec<SgfProp<G>>, children: Vec<Self>, is_root: bool) -> Self {
         Self {
@@ -39,7 +41,7 @@ impl<G: Game> SgfNode<G> {
         }
     }
 
-    /// TODO: docstring and examples
+    /// TODO: docstring examples and tests
     pub fn validate(&self) -> Result<(), InvalidNodeError> {
         // TODO: move validate_node_props into impl.
         let (has_root_props, has_game_info_props) = validate_node_props(&self.properties)?;
@@ -65,9 +67,9 @@ impl<G: Game> SgfNode<G> {
     ///
     /// # Examples
     /// ```
-    /// use sgf_parse::{parse, SgfProp};
+    /// use sgf_parse::{parse_go, SgfProp};
     ///
-    /// let node = parse("(;SZ[13:13];B[de])").unwrap().into_iter().next().unwrap();
+    /// let node = parse_go("(;SZ[13:13];B[de])").unwrap().into_iter().next().unwrap();
     /// let board_size = match node.get_property("SZ") {
     ///     Some(SgfProp::SZ(size)) => size.clone(),
     ///     None => (19, 19),
@@ -88,9 +90,9 @@ impl<G: Game> SgfNode<G> {
     ///
     /// # Examples
     /// ```
-    /// use sgf_parse::parse;
+    /// use sgf_parse::parse_go;
     ///
-    /// let node = parse("(;SZ[19](;B[de])(;B[dd]HO[2]))").unwrap().into_iter().next().unwrap();
+    /// let node = parse_go("(;SZ[19](;B[de])(;B[dd]HO[2]))").unwrap().into_iter().next().unwrap();
     /// for child in node.children() {
     ///     if let Some(prop) = child.get_property("HO") {
     ///        println!("Found a hotspot!")
@@ -105,18 +107,19 @@ impl<G: Game> SgfNode<G> {
     ///
     /// # Examples
     /// ```
-    /// use sgf_parse::{parse, Move, SgfProp};
+    /// use sgf_parse::{parse_go, SgfProp};
+    /// use sgf_parse::game::{GoGame, GoMove};
     ///
-    /// let node = parse("(;B[de]C[A comment])").unwrap().into_iter().next().unwrap();
+    /// let node = parse_go("(;B[de]C[A comment])").unwrap().into_iter().next().unwrap();
     /// for prop in node.properties() {
     ///     match prop {
-    ///         SgfProp::B(mv) => match mv {
-    ///             Move::Move(p) => println!("B Move at {}, {}", p.x, p.y),
-    ///             Move::Pass => println!("B Pass"),
+    ///         SgfProp::<GoGame>::B(mv) => match mv {
+    ///             GoMove::Move(p) => println!("B Move at {}, {}", p.x, p.y),
+    ///             GoMove::Pass => println!("B Pass"),
     ///         }
-    ///         SgfProp::W(mv) => match mv {
-    ///             Move::Move(p) => println!("W Move at {}, {}", p.x, p.y),
-    ///             Move::Pass => println!("W Pass"),
+    ///         SgfProp::<GoGame>::W(mv) => match mv {
+    ///             GoMove::Move(p) => println!("W Move at {}, {}", p.x, p.y),
+    ///             GoMove::Pass => println!("W Pass"),
     ///         }
     ///         _ => {},
     ///     }

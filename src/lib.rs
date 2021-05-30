@@ -16,7 +16,7 @@ mod serialize;
 mod sgf_node;
 mod traits;
 
-pub use parser::parse;
+pub use parser::{parse, parse_go};
 pub use props::{Color, Double, PropertyType, SgfProp, SimpleText, Text};
 pub use serialize::serialize;
 pub use sgf_node::SgfNode;

@@ -7,25 +7,20 @@ use crate::traits::Game;
 use crate::SgfNode;
 use crate::SgfProp;
 
-/// Returns a Vector of the root `SgfNodes` parsed from the provided text.
-///
-/// Any `SgfNode` returned by this function should be valid according to the SGF
-/// specification.
+/// Returns a Vector of the `GameTree` values for the root nodes from the provided text.
 ///
 /// # Errors
-/// If the text isn't a valid SGF FF\[4\] collection, then an error is returned.
+/// If the text can't be parsed as an SGF FF\[4\] collection, then an error is returned.
 ///
 /// # Examples
 /// ```
 /// use sgf_parse::parse;
-/// else if
-/// // Prints the all the properties for the two root nodes in the SGF
+/// use sgf_parse::game::GameType;
+///
 /// let sgf = "(;SZ[9]C[Some comment];B[de];W[fe])(;B[de];W[ff])";
-/// for node in parse(&sgf).unwrap().iter() {
-///     for prop in node.properties() {
-///         println!("{:?}", prop);
-///     }
-/// }
+/// let gametrees = parse(sgf).unwrap();
+/// assert!(gametrees.len() == 2);
+/// assert!(gametrees.iter().all(|gametree| gametree.gametype() == GameType::Go));
 /// ```
 pub fn parse(text: &str) -> Result<Vec<GameTree>, SgfParseError> {
     let tokens = tokenize(text)
@@ -41,6 +36,31 @@ pub fn parse(text: &str) -> Result<Vec<GameTree>, SgfParseError> {
             GameType::Unknown => todo!(),
         })
         .collect::<Result<_, _>>()
+}
+
+/// Returns a Vector of the root `SgfNodes` parsed from the provided text.
+///
+/// # Errors
+/// If the text can't be parsed as an SGF FF\[4\] collection, then an error is returned.
+///
+/// # Examples
+/// ```
+/// use sgf_parse::parse_go;
+///
+/// // Prints the all the properties for the two root nodes in the SGF
+/// let sgf = "(;SZ[9]C[Some comment];B[de];W[fe])(;B[de];W[ff])";
+/// for node in parse_go(&sgf).unwrap().iter() {
+///     for prop in node.properties() {
+///         println!("{:?}", prop);
+///     }
+/// }
+/// ```
+pub fn parse_go(text: &str) -> Result<Vec<SgfNode<GoGame>>, SgfParseError> {
+    let gametrees = parse(text)?;
+    gametrees
+        .into_iter()
+        .map(|gametree| gametree.into_go_node())
+        .collect::<Result<Vec<_>, _>>()
 }
 
 // Split the tokens up into individual gametrees.
@@ -167,17 +187,23 @@ fn find_gametype(tokens: &[Token]) -> Result<GameType, SgfParseError> {
 
 #[cfg(test)]
 mod test {
-    use super::{parse, GameTree, GoGame, SgfNode};
+    use super::*;
     use crate::props::*;
     use crate::serialize;
 
-    fn load_test_sgf() -> Result<Vec<GameTree>, Box<dyn std::error::Error>> {
+    fn load_test_sgf() -> Result<String, Box<dyn std::error::Error>> {
         // See https://www.red-bean.com/sgf/examples/
         let mut sgf_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         sgf_path.push("resources/test/ff4_ex.sgf");
         let data = std::fs::read_to_string(sgf_path)?;
 
-        Ok(parse(&data)?)
+        Ok(data)
+    }
+
+    fn get_go_nodes() -> Result<Vec<SgfNode<GoGame>>, Box<dyn std::error::Error>> {
+        let data = load_test_sgf()?;
+
+        Ok(parse_go(&data)?)
     }
 
     fn node_depth(mut sgf_node: &SgfNode<GoGame>) -> u64 {
@@ -191,25 +217,21 @@ mod test {
 
     #[test]
     fn sgf_has_two_gametrees() {
-        let sgf_nodes = load_test_sgf().unwrap();
+        let sgf_nodes = get_go_nodes().unwrap();
         assert_eq!(sgf_nodes.len(), 2);
     }
 
     #[test]
     fn gametree_one_has_five_variations() {
-        let game_trees = load_test_sgf().unwrap();
-        let result = game_trees[0].get_go_node();
-        assert!(result.is_ok());
-        let sgf_node = result.unwrap();
+        let sgf_nodes = get_go_nodes().unwrap();
+        let sgf_node = &sgf_nodes[0];
         assert_eq!(sgf_node.children().count(), 5);
     }
 
     #[test]
     fn gametree_one_has_size_19() {
-        let game_trees = load_test_sgf().unwrap();
-        let result = game_trees[0].get_go_node();
-        assert!(result.is_ok());
-        let sgf_node = result.unwrap();
+        let sgf_nodes = get_go_nodes().unwrap();
+        let sgf_node = &sgf_nodes[0];
         match sgf_node.get_property("SZ") {
             Some(SgfProp::SZ(size)) => assert_eq!(size, &(19, 19)),
             _ => unreachable!("Expected size property"),
@@ -218,10 +240,8 @@ mod test {
 
     #[test]
     fn gametree_variation_depths() {
-        let game_trees = load_test_sgf().unwrap();
-        let result = game_trees[0].get_go_node();
-        assert!(result.is_ok());
-        let sgf_node = result.unwrap();
+        let sgf_nodes = get_go_nodes().unwrap();
+        let sgf_node = &sgf_nodes[0];
         let children: Vec<_> = sgf_node.children().collect();
         assert_eq!(node_depth(children[0]), 13);
         assert_eq!(node_depth(children[1]), 4);
@@ -230,32 +250,30 @@ mod test {
 
     #[test]
     fn gametree_two_has_one_variation() {
-        let game_trees = load_test_sgf().unwrap();
-        let result = game_trees[1].get_go_node();
-        assert!(result.is_ok());
-        let sgf_node = result.unwrap();
+        let sgf_nodes = get_go_nodes().unwrap();
+        let sgf_node = &sgf_nodes[1];
         assert_eq!(sgf_node.children().count(), 1);
     }
 
     #[test]
     fn serialize_then_parse() {
-        let sgf_nodes = load_test_sgf().unwrap();
-        let text = serialize(&sgf_nodes);
-        assert_eq!(sgf_nodes, parse(&text).unwrap());
+        let data = load_test_sgf().unwrap();
+        let gametrees = parse(&data).unwrap();
+        let text = serialize(&gametrees);
+        assert_eq!(gametrees, parse(&text).unwrap());
     }
 
     #[test]
     fn invalid_property() {
         let input = "(;GM[1]W[rp.pmonpoqprpsornqmpm])";
-        let game_trees = parse(&input).unwrap();
-        let result = game_trees[0].get_go_node();
-        assert!(result.is_ok());
-        let sgf_node = result.unwrap();
+        let sgf_nodes = parse_go(input).unwrap();
         let expected = vec![
             SgfProp::GM(1),
             SgfProp::Invalid("W".to_string(), vec!["rp.pmonpoqprpsornqmpm".to_string()]),
         ];
-        assert_eq!(game_trees.len(), 1);
+
+        assert_eq!(sgf_nodes.len(), 1);
+        let sgf_node = &sgf_nodes[0];
         assert_eq!(sgf_node.properties().cloned().collect::<Vec<_>>(), expected);
     }
 

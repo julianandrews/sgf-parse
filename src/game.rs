@@ -8,17 +8,39 @@ use crate::props::utils::parse_tuple;
 use crate::traits::{Game, ToSgf};
 use crate::SgfNode;
 
+// TODO: Organize this file
+
 /// An SGF [GameTree](https://www.red-bean.com/sgf/sgf4.html#ebnf-def) value.
 #[derive(Clone, Debug, PartialEq)]
 pub enum GameTree {
     GoGame(SgfNode<GoGame>),
+    // TODO: Add at least Unknown
 }
 
+/// TODO: docs
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum GameType {
+    Go,
+    Unknown,
+}
+
+/// TODO: docs
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct GoGame {}
+
 impl GameTree {
-    pub fn get_go_node(&self) -> Result<&SgfNode<GoGame>, SgfParseError> {
+    /// TODO: Docs and examples
+    pub fn into_go_node(self) -> Result<SgfNode<GoGame>, SgfParseError> {
         match self {
             GameTree::GoGame(sgf_node) => Ok(sgf_node),
             _ => Err(SgfParseError::UnexpectedGameType),
+        }
+    }
+
+    /// TODO: Docs and examples
+    pub fn gametype(&self) -> GameType {
+        match self {
+            GameTree::GoGame(_) => GameType::Go,
         }
     }
 }
@@ -36,15 +58,6 @@ impl std::convert::From<SgfNode<GoGame>> for GameTree {
         GameTree::GoGame(sgf_node)
     }
 }
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum GameType {
-    Go,
-    Unknown,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct GoGame {}
 
 impl Game for GoGame {
     type Move = GoMove;
@@ -86,6 +99,8 @@ impl Game for GoGame {
 }
 
 /// An SGF [Point](https://www.red-bean.com/sgf/go.html#types) value for the Game of Go.
+///
+/// TODO: Examples
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct GoPoint {
     pub x: u8,
@@ -98,12 +113,13 @@ pub struct GoPoint {
 ///
 /// # Examples
 /// ```
-/// use sgf_parse::{parse, Move, SgfProp};
+/// use sgf_parse::{parse_go, SgfProp};
+/// use sgf_parse::game::GoMove;
 ///
-/// let node = parse("(;B[de])").unwrap().into_iter().next().unwrap();
+/// let node = parse_go("(;B[de])").unwrap().into_iter().next().unwrap();
 /// for prop in node.properties() {
 ///     match prop {
-///         SgfProp::B(Move::Move(point)) => println!("B move at {:?}", point),
+///         SgfProp::B(GoMove::Move(point)) => println!("B move at {:?}", point),
 ///         _ => {}
 ///     }
 /// }

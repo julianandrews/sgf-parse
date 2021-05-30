@@ -131,20 +131,20 @@ pub enum SgfProp<G: Game> {
 impl<G: Game> SgfProp<G> {
     /// Returns a new property parsed from the provided identifier and values
     ///
-    /// # Errors
-    /// If the identifier is a recognized SGF FF\[4\] property type and the provided values aren't
-    /// correct for that property type, then an error is returned.
+    /// Unrecognized properties will get mapped to `SgfProp::Unknown`. Invalid
+    /// values for recognized properties will get mapped to `SgfProp::Invalid`.
     ///
     /// # Examples
     /// ```
     /// use sgf_parse::SgfProp;
+    /// use sgf_parse::game::GoGame;
     ///
     /// // SgfProp::B(Point{ x: 2, y: 3 }
-    /// let prop = SgfProp::new("B".to_string(), vec!["cd".to_string()]);
+    /// let prop = SgfProp::<GoGame>::new("B".to_string(), vec!["cd".to_string()]);
     /// // SgfProp::AB(vec![Point{ x: 2, y: 3 }, Point { x: 3, y: 3 }])
-    /// let prop = SgfProp::new("AB".to_string(), vec!["cd".to_string(), "dd".to_string()]);
+    /// let prop = SgfProp::<GoGame>::new("AB".to_string(), vec!["cd".to_string(), "dd".to_string()]);
     /// // SgfProp::Unknown("FOO", vec!["Text"])
-    /// let prop = SgfProp::new("FOO".to_string(), vec!["Text".to_string()]);
+    /// let prop = SgfProp::<GoGame>::new("FOO".to_string(), vec!["Text".to_string()]);
     /// ```
     pub fn new(identifier: String, values: Vec<String>) -> Self {
         let result = match &identifier[..] {
@@ -261,10 +261,11 @@ impl<G: Game> SgfProp<G> {
     /// # Examples
     /// ```
     /// use sgf_parse::SgfProp;
+    /// use sgf_parse::game::GoGame;
     ///
-    /// let prop = SgfProp::new("W".to_string(), vec!["de".to_string()]);
+    /// let prop = SgfProp::<GoGame>::new("W".to_string(), vec!["de".to_string()]);
     /// assert_eq!(prop.identifier(), "W");
-    /// let prop = SgfProp::new("FOO".to_string(), vec!["de".to_string()]);
+    /// let prop = SgfProp::<GoGame>::new("FOO".to_string(), vec!["de".to_string()]);
     /// assert_eq!(prop.identifier(), "FOO");
     /// ```
     pub fn identifier(&self) -> String {
@@ -346,10 +347,11 @@ impl<G: Game> SgfProp<G> {
     /// # Examples
     /// ```
     /// use sgf_parse::{PropertyType, SgfProp};
+    /// use sgf_parse::game::GoGame;
     ///
-    /// let prop = SgfProp::new("W".to_string(), vec!["de".to_string()]);
+    /// let prop = SgfProp::<GoGame>::new("W".to_string(), vec!["de".to_string()]);
     /// assert_eq!(prop.property_type(), Some(PropertyType::Move));
-    /// let prop = SgfProp::new("FOO".to_string(), vec!["de".to_string()]);
+    /// let prop = SgfProp::<GoGame>::new("FOO".to_string(), vec!["de".to_string()]);
     /// assert_eq!(prop.property_type(), None);
     /// ```
     pub fn property_type(&self) -> Option<PropertyType> {
@@ -430,7 +432,7 @@ fn parse_single_text_value(values: &[String]) -> Result<Text, SgfPropError> {
     })
 }
 
-pub fn parse_list_composed_point<G: Game>(
+fn parse_list_composed_point<G: Game>(
     values: &[String],
 ) -> Result<HashSet<(G::Point, G::Point)>, SgfPropError> {
     let mut pairs = HashSet::new();
