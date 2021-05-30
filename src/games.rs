@@ -34,6 +34,9 @@ pub enum GameType {
 /// This type allows creating a collection of [`SgfNode`] values for different games. This is
 /// used in the return type of the [`crate::parse()`] function. Users of the
 /// [`crate::serialize()`] function will need to build these.
+///
+/// For now, all non-Go games will parse as [`GameTree::Unknown`] which should also be used for any
+/// serialization of non-Go games.
 #[derive(Clone, Debug, PartialEq)]
 pub enum GameTree {
     GoGame(SgfNode<Go>),
