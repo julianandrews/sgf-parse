@@ -162,7 +162,9 @@ where
     if !incomplete_child_lists.is_empty() || collection.len() != 1 {
         return Err(SgfParseError::UnexpectedEndOfData);
     }
-    Ok(collection.into_iter().next().unwrap().into())
+    let mut root_node = collection.into_iter().next().unwrap();
+    root_node.is_root = true;
+    Ok(root_node.into())
 }
 
 // Figure out which game to parse from a slice of tokens.

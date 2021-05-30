@@ -123,134 +123,154 @@ impl<G: Game> SgfNode<G> {
     /// assert!(matches!(result, Err(InvalidNodeError::RepeatedIdentifier(_))));
     /// ```
     pub fn validate(&self) -> Result<(), InvalidNodeError> {
-        let (has_root_props, has_game_info_props) = validate_node_props(&self.properties)?;
-        if has_root_props && !self.is_root {
-            return Err(InvalidNodeError::UnexpectedRootNode(format!(
+        // TODO: Rewrite this non-recursively
+        self.validate_helper()?;
+        Ok(())
+    }
+
+    // Helper that returns whether a child has any game info in its descendents.
+    fn validate_helper(&self) -> Result<bool, InvalidNodeError> {
+        self.validate_properties()?;
+        let has_game_info = self.has_game_info();
+        let mut child_has_game_info = false;
+        for child in self.children() {
+            child_has_game_info |= child.validate_helper()?;
+        }
+        if child_has_game_info && has_game_info {
+            return Err(InvalidNodeError::UnexpectedGameInfo(format!(
                 "{:?}",
                 self.properties
             )));
         }
-        // TODO: Fix validate
-        //    refactor validate_node_props
-        //    validate game_info
-        //    check for any invalid properties
-        // let children_have_game_info = self.children.iter().any(|child| child.has_game_info);
-        // if has_game_info_props && children_have_game_info {
-        //     return Err(InvalidNodeError::UnexpectedGameInfo(format!(
-        //         "{:?}",
-        //         self.properties
-        //     )));
-        // }
-        Ok(())
+        Ok(has_game_info)
     }
-}
 
-fn validate_node_props<G: Game>(props: &[SgfProp<G>]) -> Result<(bool, bool), InvalidNodeError> {
-    let mut identifiers = HashSet::new();
-    let mut markup_points = HashSet::new();
-    let mut setup_node = false;
-    let mut move_node = false;
-    let mut move_seen = false;
-    let mut game_info_node = false;
-    let mut root_node = false;
-    let mut exclusive_node_annotations = 0;
-    let mut move_annotation_count = 0;
-    for prop in props.iter() {
-        match prop {
-            SgfProp::B(_) => {
-                move_seen = true;
-                if identifiers.contains("W") {
-                    return Err(InvalidNodeError::MultipleMoves(format!(
-                        "{:?}",
-                        props.to_vec()
-                    )));
-                }
+    fn has_game_info(&self) -> bool {
+        for prop in self.properties() {
+            if let Some(PropertyType::GameInfo) = prop.property_type() {
+                return true;
             }
-            SgfProp::W(_) => {
-                move_seen = true;
-                if identifiers.contains("B") {
-                    return Err(InvalidNodeError::MultipleMoves(format!(
-                        "{:?}",
-                        props.to_vec()
-                    )));
-                }
-            }
-            SgfProp::CR(ps)
-            | SgfProp::MA(ps)
-            | SgfProp::SL(ps)
-            | SgfProp::SQ(ps)
-            | SgfProp::TR(ps) => {
-                for p in ps.iter() {
-                    if markup_points.contains(&p) {
-                        return Err(InvalidNodeError::RepeatedMarkup(format!(
+        }
+        false
+    }
+
+    fn validate_properties(&self) -> Result<(), InvalidNodeError> {
+        let mut identifiers = HashSet::new();
+        let mut markup_points = HashSet::new();
+        let mut setup_node = false;
+        let mut move_node = false;
+        let mut move_seen = false;
+        let mut exclusive_node_annotations = 0;
+        let mut move_annotation_count = 0;
+        for prop in self.properties() {
+            match prop {
+                SgfProp::B(_) => {
+                    move_seen = true;
+                    if identifiers.contains("W") {
+                        return Err(InvalidNodeError::MultipleMoves(format!(
                             "{:?}",
-                            props.to_vec()
+                            self.properties.to_vec()
                         )));
                     }
-                    markup_points.insert(p);
                 }
+                SgfProp::W(_) => {
+                    move_seen = true;
+                    if identifiers.contains("B") {
+                        return Err(InvalidNodeError::MultipleMoves(format!(
+                            "{:?}",
+                            self.properties.to_vec()
+                        )));
+                    }
+                }
+                SgfProp::CR(ps)
+                | SgfProp::MA(ps)
+                | SgfProp::SL(ps)
+                | SgfProp::SQ(ps)
+                | SgfProp::TR(ps) => {
+                    for p in ps.iter() {
+                        if markup_points.contains(&p) {
+                            return Err(InvalidNodeError::RepeatedMarkup(format!(
+                                "{:?}",
+                                self.properties.to_vec()
+                            )));
+                        }
+                        markup_points.insert(p);
+                    }
+                }
+                SgfProp::DM(_) | SgfProp::UC(_) | SgfProp::GW(_) | SgfProp::GB(_) => {
+                    exclusive_node_annotations += 1
+                }
+                SgfProp::BM(_) | SgfProp::DO | SgfProp::IT | SgfProp::TE(_) => {
+                    move_annotation_count += 1
+                }
+                SgfProp::Invalid(identifier, values) => {
+                    return Err(InvalidNodeError::InvalidProperty(format!(
+                        "{}, {:?}",
+                        identifier, values
+                    )))
+                }
+                _ => {}
             }
-            SgfProp::DM(_) | SgfProp::UC(_) | SgfProp::GW(_) | SgfProp::GB(_) => {
-                exclusive_node_annotations += 1
+            match prop.property_type() {
+                Some(PropertyType::Move) => move_node = true,
+                Some(PropertyType::Setup) => setup_node = true,
+                Some(PropertyType::Root) => {
+                    if !self.is_root {
+                        return Err(InvalidNodeError::UnexpectedRootProperties(format!(
+                            "{:?}",
+                            self.properties
+                        )));
+                    }
+                }
+                _ => {}
             }
-            SgfProp::BM(_) | SgfProp::DO | SgfProp::IT | SgfProp::TE(_) => {
-                move_annotation_count += 1
+            let ident = prop.identifier();
+            if identifiers.contains(&ident) {
+                return Err(InvalidNodeError::RepeatedIdentifier(format!(
+                    "{:?}",
+                    self.properties.to_vec()
+                )));
             }
-            _ => {}
+            identifiers.insert(prop.identifier());
         }
-        match prop.property_type() {
-            Some(PropertyType::Move) => move_node = true,
-            Some(PropertyType::Setup) => setup_node = true,
-            Some(PropertyType::GameInfo) => game_info_node = true,
-            Some(PropertyType::Root) => root_node = true,
-            _ => {}
-        }
-        let ident = prop.identifier();
-        if identifiers.contains(&ident) {
-            return Err(InvalidNodeError::RepeatedIdentifier(format!(
+        if setup_node && move_node {
+            return Err(InvalidNodeError::SetupAndMove(format!(
                 "{:?}",
-                props.to_vec()
+                self.properties.to_vec()
             )));
         }
-        identifiers.insert(prop.identifier());
+        if identifiers.contains("KO") && !(identifiers.contains("B") || identifiers.contains("W")) {
+            return Err(InvalidNodeError::KoWithoutMove(format!(
+                "{:?}",
+                self.properties.to_vec()
+            )));
+        }
+        if move_annotation_count > 1 {
+            return Err(InvalidNodeError::MultipleMoveAnnotations(format!(
+                "{:?}",
+                self.properties.to_vec()
+            )));
+        }
+        if move_annotation_count == 1 && !move_seen {
+            return Err(InvalidNodeError::UnexpectedMoveAnnotation(format!(
+                "{:?}",
+                self.properties.to_vec()
+            )));
+        }
+        if exclusive_node_annotations > 1 {
+            return Err(InvalidNodeError::MultipleExclusiveAnnotations(format!(
+                "{:?}",
+                self.properties.to_vec()
+            )));
+        }
+        Ok(())
     }
-    if setup_node && move_node {
-        return Err(InvalidNodeError::SetupAndMove(format!(
-            "{:?}",
-            props.to_vec()
-        )));
-    }
-    if identifiers.contains("KO") && !(identifiers.contains("B") || identifiers.contains("W")) {
-        return Err(InvalidNodeError::KoWithoutMove(format!(
-            "{:?}",
-            props.to_vec()
-        )));
-    }
-    if move_annotation_count > 1 {
-        return Err(InvalidNodeError::MultipleMoveAnnotations(format!(
-            "{:?}",
-            props.to_vec()
-        )));
-    }
-    if move_annotation_count == 1 && !move_seen {
-        return Err(InvalidNodeError::UnexpectedMoveAnnotation(format!(
-            "{:?}",
-            props.to_vec()
-        )));
-    }
-    if exclusive_node_annotations > 1 {
-        return Err(InvalidNodeError::MultipleExclusiveAnnotations(format!(
-            "{:?}",
-            props.to_vec()
-        )));
-    }
-    Ok((root_node, game_info_node))
 }
 
 /// Err type for [`SgfNode::validate`].
 #[derive(Debug)]
 pub enum InvalidNodeError {
-    UnexpectedRootNode(String),
+    UnexpectedRootProperties(String),
     UnexpectedGameInfo(String),
     RepeatedMarkup(String),
     MultipleMoves(String),
@@ -260,12 +280,13 @@ pub enum InvalidNodeError {
     MultipleMoveAnnotations(String),
     UnexpectedMoveAnnotation(String),
     MultipleExclusiveAnnotations(String),
+    InvalidProperty(String),
 }
 
 impl std::fmt::Display for InvalidNodeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            InvalidNodeError::UnexpectedRootNode(context) => {
+            InvalidNodeError::UnexpectedRootProperties(context) => {
                 write!(f, "Root properties in non-root node: {:?}", context)
             }
             InvalidNodeError::UnexpectedGameInfo(context) => {
@@ -299,12 +320,143 @@ impl std::fmt::Display for InvalidNodeError {
                     context
                 )
             }
+            InvalidNodeError::InvalidProperty(context) => {
+                write!(f, "Invalid property: {}", context)
+            }
         }
     }
 }
 
 impl std::error::Error for InvalidNodeError {}
 
+#[cfg(test)]
 mod tests {
-    // TODO: Add tests for all public methods
+    use super::InvalidNodeError;
+    use crate::go::parse;
+
+    #[test]
+    fn validate_sample_sgf_valid() {
+        let mut sgf_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+        sgf_path.push("resources/test/ff4_ex.sgf");
+        let sgf = std::fs::read_to_string(sgf_path).unwrap();
+        let node = &parse(&sgf).unwrap()[0];
+        assert!(node.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_valid_node() {
+        let sgf = "(;SZ[9]HA[3]C[Some comment];B[de];W[fe])";
+        let node = &parse(sgf).unwrap()[0];
+        assert!(node.validate().is_ok());
+    }
+
+    #[test]
+    fn validate_unexpected_root_properties() {
+        let sgf = "(;SZ[9]C[Some comment];GM[1])";
+        let node = &parse(sgf).unwrap()[0];
+        assert!(matches!(
+            node.validate(),
+            Err(InvalidNodeError::UnexpectedRootProperties(_))
+        ));
+    }
+
+    #[test]
+    fn validate_unexpected_game_info() {
+        let sgf = "(;SZ[9]KM[3.5]C[Some comment];HA[3])";
+        let node = &parse(sgf).unwrap()[0];
+        assert!(matches!(
+            node.validate(),
+            Err(InvalidNodeError::UnexpectedGameInfo(_))
+        ));
+    }
+
+    #[test]
+    fn validate_repeated_markup() {
+        let sgf = "(;SZ[9]KM[3.5]C[Some comment];CR[dd]TR[dd])";
+        let node = &parse(sgf).unwrap()[0];
+        assert!(matches!(
+            node.validate(),
+            Err(InvalidNodeError::RepeatedMarkup(_))
+        ));
+    }
+
+    #[test]
+    fn validate_multiple_moves() {
+        let sgf = "(;SZ[9]C[Some comment];B[dd]W[cd])";
+        let node = &parse(sgf).unwrap()[0];
+        assert!(matches!(
+            node.validate(),
+            Err(InvalidNodeError::MultipleMoves(_))
+        ));
+    }
+
+    #[test]
+    fn validate_repeated_identifier() {
+        let sgf = "(;SZ[9]HA[3]HA[4])";
+        let node = &parse(sgf).unwrap()[0];
+        assert!(matches!(
+            node.validate(),
+            Err(InvalidNodeError::RepeatedIdentifier(_))
+        ));
+    }
+
+    #[test]
+    fn validate_setup_and_move() {
+        let sgf = "(;AB[dd]B[cc])";
+        let node = &parse(sgf).unwrap()[0];
+        assert!(matches!(
+            node.validate(),
+            Err(InvalidNodeError::SetupAndMove(_))
+        ));
+    }
+
+    #[test]
+    fn validate_ko_without_move() {
+        let sgf = "(;KO[])";
+        let node = &parse(sgf).unwrap()[0];
+        assert!(matches!(
+            node.validate(),
+            Err(InvalidNodeError::KoWithoutMove(_))
+        ));
+    }
+
+    #[test]
+    fn validate_multiple_move_annotations() {
+        let sgf = "(;B[dd]DO[]BM[1])";
+        let node = &parse(sgf).unwrap()[0];
+        assert!(matches!(
+            node.validate(),
+            Err(InvalidNodeError::MultipleMoveAnnotations(_))
+        ));
+    }
+
+    #[test]
+    fn validate_unexpected_move_annotation() {
+        let sgf = "(;BM[1])";
+        let node = &parse(sgf).unwrap()[0];
+        assert!(matches!(
+            node.validate(),
+            Err(InvalidNodeError::UnexpectedMoveAnnotation(_))
+        ));
+    }
+
+    #[test]
+    fn validate_multiple_exclusive_annotations() {
+        let sgf = "(;UC[2]GW[2])";
+        let node = &parse(sgf).unwrap()[0];
+        assert!(matches!(
+            node.validate(),
+            Err(InvalidNodeError::MultipleExclusiveAnnotations(_))
+        ));
+    }
+
+    #[test]
+    fn validate_invalid_property() {
+        let sgf = "(;BM[Invalid])";
+        let node = &parse(sgf).unwrap()[0];
+        assert!(matches!(
+            node.validate(),
+            Err(InvalidNodeError::InvalidProperty(_))
+        ));
+    }
 }
