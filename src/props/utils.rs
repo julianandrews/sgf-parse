@@ -55,7 +55,7 @@ pub fn parse_tuple<T1: FromStr, T2: FromStr>(value: &str) -> Result<(T1, T2), Sg
 
 #[cfg(test)]
 mod test {
-    use crate::game::{GoGame, GoPoint};
+    use crate::go::{Go, Point};
     use std::collections::HashSet;
 
     #[test]
@@ -83,10 +83,10 @@ mod test {
             (13, 18),
         ]
         .into_iter()
-        .map(|(x, y)| GoPoint { x, y })
+        .map(|(x, y)| Point { x, y })
         .collect();
 
-        let result: HashSet<_> = super::parse_list_point::<GoGame>(&values).unwrap();
+        let result: HashSet<_> = super::parse_list_point::<Go>(&values).unwrap();
 
         assert_eq!(result, expected);
     }

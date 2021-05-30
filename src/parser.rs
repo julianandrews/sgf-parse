@@ -1,21 +1,19 @@
 use std::ptr::NonNull;
 
-use crate::errors::SgfParseError;
-use crate::game::{GameTree, GameType, GoGame};
-use crate::lexer::{tokenize, Token};
-use crate::traits::Game;
-use crate::SgfNode;
-use crate::SgfProp;
+use crate::games::Game;
+use crate::go::Go;
+use crate::lexer::{tokenize, LexerError, Token};
+use crate::unknown_game::UnknownGame;
+use crate::{GameTree, GameType, SgfNode, SgfProp};
 
-/// Returns a Vector of the `GameTree` values for the root nodes from the provided text.
+/// Returns the [`GameTree`] values parsed from the provided text.
 ///
 /// # Errors
 /// If the text can't be parsed as an SGF FF\[4\] collection, then an error is returned.
 ///
 /// # Examples
 /// ```
-/// use sgf_parse::parse;
-/// use sgf_parse::game::GameType;
+/// use sgf_parse::{parse, GameType};
 ///
 /// let sgf = "(;SZ[9]C[Some comment];B[de];W[fe])(;B[de];W[ff])";
 /// let gametrees = parse(sgf).unwrap();
@@ -32,36 +30,43 @@ pub fn parse(text: &str) -> Result<Vec<GameTree>, SgfParseError> {
     split_by_gametree(&tokens)?
         .into_iter()
         .map(|tokens| match find_gametype(tokens)? {
-            GameType::Go => parse_gametree::<GoGame>(tokens),
-            GameType::Unknown => todo!(),
+            GameType::Go => parse_gametree::<Go>(tokens),
+            GameType::Unknown => parse_gametree::<UnknownGame>(tokens),
         })
         .collect::<Result<_, _>>()
 }
 
-/// Returns a Vector of the root `SgfNodes` parsed from the provided text.
-///
-/// # Errors
-/// If the text can't be parsed as an SGF FF\[4\] collection, then an error is returned.
-///
-/// # Examples
-/// ```
-/// use sgf_parse::parse_go;
-///
-/// // Prints the all the properties for the two root nodes in the SGF
-/// let sgf = "(;SZ[9]C[Some comment];B[de];W[fe])(;B[de];W[ff])";
-/// for node in parse_go(&sgf).unwrap().iter() {
-///     for prop in node.properties() {
-///         println!("{:?}", prop);
-///     }
-/// }
-/// ```
-pub fn parse_go(text: &str) -> Result<Vec<SgfNode<GoGame>>, SgfParseError> {
-    let gametrees = parse(text)?;
-    gametrees
-        .into_iter()
-        .map(|gametree| gametree.into_go_node())
-        .collect::<Result<Vec<_>, _>>()
+/// Error type for failures parsing sgf from text.
+#[derive(Debug)]
+pub enum SgfParseError {
+    LexerError(LexerError),
+    UnexpectedGameTreeStart,
+    UnexpectedGameTreeEnd,
+    UnexpectedProperty,
+    UnexpectedEndOfData,
+    UnexpectedGameType,
 }
+
+impl From<LexerError> for SgfParseError {
+    fn from(error: LexerError) -> Self {
+        Self::LexerError(error)
+    }
+}
+
+impl std::fmt::Display for SgfParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match self {
+            SgfParseError::LexerError(e) => write!(f, "Error tokenizing: {}", e),
+            SgfParseError::UnexpectedGameTreeStart => write!(f, "Unexpected start of game tree"),
+            SgfParseError::UnexpectedGameTreeEnd => write!(f, "Unexpected end of game tree"),
+            SgfParseError::UnexpectedProperty => write!(f, "Unexpected property"),
+            SgfParseError::UnexpectedEndOfData => write!(f, "Unexpected end of data"),
+            SgfParseError::UnexpectedGameType => write!(f, "Unexpected game type"),
+        }
+    }
+}
+
+impl std::error::Error for SgfParseError {}
 
 // Split the tokens up into individual gametrees.
 //
@@ -99,7 +104,7 @@ fn parse_gametree<G: Game>(tokens: &[Token]) -> Result<GameTree, SgfParseError>
 where
     SgfNode<G>: std::convert::Into<GameTree>,
 {
-    // TODO: Rewrite this with safe code
+    // TODO: Rewrite this without `unsafe`
     let mut collection: Vec<SgfNode<G>> = vec![];
     // //// Pointer to the `Vec` of children we're currently building.
     let mut current_node_list_ptr = NonNull::new(&mut collection).unwrap();
@@ -154,10 +159,9 @@ where
         }
     }
 
-    if !incomplete_child_lists.is_empty() {
+    if !incomplete_child_lists.is_empty() || collection.len() != 1 {
         return Err(SgfParseError::UnexpectedEndOfData);
     }
-    // TODO: Check exactly one in collection
     Ok(collection.into_iter().next().unwrap().into())
 }
 
@@ -180,7 +184,16 @@ fn find_gametype(tokens: &[Token]) -> Result<GameType, SgfParseError> {
         .collect();
     match gm_props.len() {
         0 => Ok(GameType::Go),
-        1 => Ok(GameType::Go), // TODO
+        1 => {
+            let props = gm_props[0];
+            if props.len() != 1 {
+                return Ok(GameType::Unknown);
+            }
+            match props[0].as_str() {
+                "1" => Ok(GameType::Go),
+                _ => Ok(GameType::Unknown),
+            }
+        }
         _ => Err(SgfParseError::UnexpectedProperty),
     }
 }
@@ -200,13 +213,13 @@ mod test {
         Ok(data)
     }
 
-    fn get_go_nodes() -> Result<Vec<SgfNode<GoGame>>, Box<dyn std::error::Error>> {
+    fn get_go_nodes() -> Result<Vec<SgfNode<Go>>, Box<dyn std::error::Error>> {
         let data = load_test_sgf()?;
 
-        Ok(parse_go(&data)?)
+        Ok(crate::go::parse(&data)?)
     }
 
-    fn node_depth(mut sgf_node: &SgfNode<GoGame>) -> u64 {
+    fn node_depth(mut sgf_node: &SgfNode<Go>) -> u64 {
         let mut depth = 1;
         while sgf_node.children().count() > 0 {
             depth += 1;
@@ -266,7 +279,7 @@ mod test {
     #[test]
     fn invalid_property() {
         let input = "(;GM[1]W[rp.pmonpoqprpsornqmpm])";
-        let sgf_nodes = parse_go(input).unwrap();
+        let sgf_nodes = crate::go::parse(input).unwrap();
         let expected = vec![
             SgfProp::GM(1),
             SgfProp::Invalid("W".to_string(), vec!["rp.pmonpoqprpsornqmpm".to_string()]),
@@ -275,6 +288,30 @@ mod test {
         assert_eq!(sgf_nodes.len(), 1);
         let sgf_node = &sgf_nodes[0];
         assert_eq!(sgf_node.properties().cloned().collect::<Vec<_>>(), expected);
+    }
+
+    #[test]
+    fn unknown_game() {
+        let input = "(;GM[37]W[rp.pmonpoqprpsornqmpm])";
+        let gametrees = parse(input).unwrap();
+        assert_eq!(gametrees.len(), 1);
+        assert_eq!(gametrees[0].gametype(), GameType::Unknown);
+        let sgf_node = match &gametrees[0] {
+            GameTree::Unknown(node) => node,
+            _ => panic!("Unexpected game type"),
+        };
+        let expected = vec![SgfProp::GM(37), SgfProp::W("rp.pmonpoqprpsornqmpm".into())];
+
+        assert_eq!(sgf_node.properties().cloned().collect::<Vec<_>>(), expected);
+    }
+
+    #[test]
+    fn mixed_games() {
+        let input = "(;GM[1];W[dd])(;GM[37]W[rp.pmonpoqprpsornqmpm])";
+        let gametrees = parse(input).unwrap();
+        assert_eq!(gametrees.len(), 2);
+        assert_eq!(gametrees[0].gametype(), GameType::Go);
+        assert_eq!(gametrees[1].gametype(), GameType::Unknown);
     }
 
     #[test]

@@ -1,7 +1,7 @@
 use std::collections::HashSet;
 
-use super::props::{PropertyType, SgfProp};
-use super::traits::Game;
+use crate::games::Game;
+use crate::props::{PropertyType, SgfProp};
 
 /// A node in an SGF Game Tree.
 ///
@@ -19,18 +19,17 @@ impl<G: Game> SgfNode<G> {
     /// # Examples
     /// ```
     /// use sgf_parse::{serialize, SgfNode, SgfProp};
-    /// use sgf_parse::game::{GameTree, GoGame};
+    /// use sgf_parse::go::Go;
     ///
     /// let children = vec![
-    ///     SgfNode::<GoGame>::new(
+    ///     SgfNode::<Go>::new(
     ///         vec![SgfProp::new("B".to_string(),
     ///         vec!["dd".to_string()])], vec![],
     ///         false,
     ///     ),
     /// ];
     ///
-    /// let node = SgfNode::new(vec![SgfProp::SZ((19, 19))], children, true);
-    /// let gametree = GameTree::GoGame(node);
+    /// let gametree = SgfNode::new(vec![SgfProp::SZ((19, 19))], children, true).into();
     /// assert_eq!(serialize(std::iter::once(&gametree)), "(;SZ[19:19];B[dd])");
     /// ```
     pub fn new(properties: Vec<SgfProp<G>>, children: Vec<Self>, is_root: bool) -> Self {
@@ -41,35 +40,14 @@ impl<G: Game> SgfNode<G> {
         }
     }
 
-    /// TODO: docstring examples and tests
-    pub fn validate(&self) -> Result<(), InvalidNodeError> {
-        // TODO: move validate_node_props into impl.
-        let (has_root_props, has_game_info_props) = validate_node_props(&self.properties)?;
-        if has_root_props && !self.is_root {
-            return Err(InvalidNodeError::UnexpectedRootNode(format!(
-                "{:?}",
-                self.properties
-            )));
-        }
-        // TODO: validate game_info.
-        // let children_have_game_info = self.children.iter().any(|child| child.has_game_info);
-        // if has_game_info_props && children_have_game_info {
-        //     return Err(InvalidNodeError::UnexpectedGameInfo(format!(
-        //         "{:?}",
-        //         self.properties
-        //     )));
-        // }
-        // TODO:
-        Ok(())
-    }
-
     /// Returns the property with the provided identifier for the node (if present).
     ///
     /// # Examples
     /// ```
-    /// use sgf_parse::{parse_go, SgfProp};
+    /// use sgf_parse::SgfProp;
+    /// use sgf_parse::go::parse;
     ///
-    /// let node = parse_go("(;SZ[13:13];B[de])").unwrap().into_iter().next().unwrap();
+    /// let node = parse("(;SZ[13:13];B[de])").unwrap().into_iter().next().unwrap();
     /// let board_size = match node.get_property("SZ") {
     ///     Some(SgfProp::SZ(size)) => size.clone(),
     ///     None => (19, 19),
@@ -90,9 +68,9 @@ impl<G: Game> SgfNode<G> {
     ///
     /// # Examples
     /// ```
-    /// use sgf_parse::parse_go;
+    /// use sgf_parse::go::parse;
     ///
-    /// let node = parse_go("(;SZ[19](;B[de])(;B[dd]HO[2]))").unwrap().into_iter().next().unwrap();
+    /// let node = parse("(;SZ[19](;B[de])(;B[dd]HO[2]))").unwrap().into_iter().next().unwrap();
     /// for child in node.children() {
     ///     if let Some(prop) = child.get_property("HO") {
     ///        println!("Found a hotspot!")
@@ -107,19 +85,19 @@ impl<G: Game> SgfNode<G> {
     ///
     /// # Examples
     /// ```
-    /// use sgf_parse::{parse_go, SgfProp};
-    /// use sgf_parse::game::{GoGame, GoMove};
+    /// use sgf_parse::SgfProp;
+    /// use sgf_parse::go::{parse, Go, Move};
     ///
-    /// let node = parse_go("(;B[de]C[A comment])").unwrap().into_iter().next().unwrap();
+    /// let node = parse("(;B[de]C[A comment])").unwrap().into_iter().next().unwrap();
     /// for prop in node.properties() {
     ///     match prop {
-    ///         SgfProp::<GoGame>::B(mv) => match mv {
-    ///             GoMove::Move(p) => println!("B Move at {}, {}", p.x, p.y),
-    ///             GoMove::Pass => println!("B Pass"),
+    ///         SgfProp::<Go>::B(mv) => match mv {
+    ///             Move::Move(p) => println!("B Move at {}, {}", p.x, p.y),
+    ///             Move::Pass => println!("B Pass"),
     ///         }
-    ///         SgfProp::<GoGame>::W(mv) => match mv {
-    ///             GoMove::Move(p) => println!("W Move at {}, {}", p.x, p.y),
-    ///             GoMove::Pass => println!("W Pass"),
+    ///         SgfProp::<Go>::W(mv) => match mv {
+    ///             Move::Move(p) => println!("W Move at {}, {}", p.x, p.y),
+    ///             Move::Pass => println!("W Pass"),
     ///         }
     ///         _ => {},
     ///     }
@@ -127,6 +105,43 @@ impl<G: Game> SgfNode<G> {
     /// ```
     pub fn properties<'a>(&'a self) -> impl Iterator<Item = &SgfProp<G>> + 'a {
         self.properties.iter()
+    }
+
+    /// Returns `Ok` if the [`SgfNode`]'s properties are valid according to the SGF FF\[4\] spec.
+    ///
+    /// # Errors
+    /// If the node has invalid properties than an [`InvalidNodeError`] is returned with details
+    /// about the invalid properties.
+    ///
+    /// # Examples
+    /// ```
+    /// use sgf_parse::InvalidNodeError;
+    /// use sgf_parse::go::parse;
+    ///
+    /// let node = parse("(;B[de]C[A comment]C[Another])").unwrap().into_iter().next().unwrap();
+    /// let result = node.validate();
+    /// assert!(matches!(result, Err(InvalidNodeError::RepeatedIdentifier(_))));
+    /// ```
+    pub fn validate(&self) -> Result<(), InvalidNodeError> {
+        let (has_root_props, has_game_info_props) = validate_node_props(&self.properties)?;
+        if has_root_props && !self.is_root {
+            return Err(InvalidNodeError::UnexpectedRootNode(format!(
+                "{:?}",
+                self.properties
+            )));
+        }
+        // TODO: Fix validate
+        //    refactor validate_node_props
+        //    validate game_info
+        //    check for any invalid properties
+        // let children_have_game_info = self.children.iter().any(|child| child.has_game_info);
+        // if has_game_info_props && children_have_game_info {
+        //     return Err(InvalidNodeError::UnexpectedGameInfo(format!(
+        //         "{:?}",
+        //         self.properties
+        //     )));
+        // }
+        Ok(())
     }
 }
 
@@ -232,7 +247,7 @@ fn validate_node_props<G: Game>(props: &[SgfProp<G>]) -> Result<(bool, bool), In
     Ok((root_node, game_info_node))
 }
 
-/// Error type for invalid [SgfNode](struct.SgfNode.html) structs.
+/// Err type for [`SgfNode::validate`].
 #[derive(Debug)]
 pub enum InvalidNodeError {
     UnexpectedRootNode(String),
@@ -289,3 +304,7 @@ impl std::fmt::Display for InvalidNodeError {
 }
 
 impl std::error::Error for InvalidNodeError {}
+
+mod tests {
+    // TODO: Add tests for all public methods
+}

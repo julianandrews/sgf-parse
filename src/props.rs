@@ -4,8 +4,7 @@ mod values;
 use std::collections::HashSet;
 use std::str::FromStr;
 
-use crate::errors::SgfPropError;
-use crate::traits::Game;
+use crate::games::Game;
 use utils::{
     parse_elist_point, parse_list_point, parse_list_stone, parse_single_simple_text_value,
     parse_tuple, split_compose,
@@ -29,23 +28,22 @@ pub enum PropertyType {
 ///
 /// All [general properties](https://www.red-bean.com/sgf/properties.html) from the SGF
 /// specification and all properties will return the approprite enum instance with parsed data.
-/// Unrecognized properties will return `SgfProp::Unknown(identifier, values)`. Recognized
-/// general or game specific properties with invalid values will return
-/// `SgfProp::Invalid(identifier, values)`.
+/// Unrecognized properties will return [`SgfProp::Unknown`]. Recognized general or game specific
+/// properties with invalid values will return [`SgfProp::Invalid`].
 ///
 /// See [property value types](https://www.red-bean.com/sgf/sgf4.html#types) for a list of types
 /// recognized by SGF. For parsing purposes the following mappings are used:
-/// * 'Number' => [i64](https://doc.rust-lang.org/std/primitive.i64.html)
-/// * 'Real' => [f64](https://doc.rust-lang.org/std/primitive.f64.html)
-/// * 'Double' => [Double](enum.Double.html)
-/// * 'Color' => [Color](enum.Color.html)
-/// * 'SimpleText' => [SimpleText](struct.SimpleText.html)
+/// * 'Number' => [`i64`]
+/// * 'Real' => [`f64`]
+/// * 'Double' => [`Double`]
+/// * 'Color' => [`Color`]
+/// * 'SimpleText' => [`SimpleText`]
 /// * 'Text' => [Text](struct.Text.html)
-/// * 'Point' => Game specific Point value (e.g.: [GoPoint](game/struct.GoPoint.html))
-/// * 'Stone' => Game specific Stone value (e.g.: [GoPoint](game/struct.GoPoint.html))
-/// * 'Move' => Game specific Move value (e.g.: [GoPoint](game/struct.GoMove.html))
-/// * 'List' => [HashSet](https://doc.rust-lang.org/std/collections/struct.HashSet.html)
-/// * 'Compose' => [tuple](https://doc.rust-lang.org/std/primitive.tuple.html) of the composed values
+/// * 'Point' => Game specific Point value (e.g.: [`crate::go::Point`])
+/// * 'Stone' => Game specific Stone value (e.g.: [`crate::go::Point`])
+/// * 'Move' => Game specific Move value (e.g.: [`crate::go::Move`])
+/// * 'List' => [`std::collections::HashSet`]
+/// * 'Compose' => [`tuple`] of the composed values
 #[derive(Clone, Debug, PartialEq)]
 pub enum SgfProp<G: Game> {
     // Move Properties
@@ -131,20 +129,20 @@ pub enum SgfProp<G: Game> {
 impl<G: Game> SgfProp<G> {
     /// Returns a new property parsed from the provided identifier and values
     ///
-    /// Unrecognized properties will get mapped to `SgfProp::Unknown`. Invalid
-    /// values for recognized properties will get mapped to `SgfProp::Invalid`.
+    /// Unrecognized properties will get mapped to [`SgfProp::Unknown`]. Invalid
+    /// values for recognized properties will get mapped to [`SgfProp::Invalid`].
     ///
     /// # Examples
     /// ```
     /// use sgf_parse::SgfProp;
-    /// use sgf_parse::game::GoGame;
+    /// use sgf_parse::go::Go;
     ///
     /// // SgfProp::B(Point{ x: 2, y: 3 }
-    /// let prop = SgfProp::<GoGame>::new("B".to_string(), vec!["cd".to_string()]);
+    /// let prop = SgfProp::<Go>::new("B".to_string(), vec!["cd".to_string()]);
     /// // SgfProp::AB(vec![Point{ x: 2, y: 3 }, Point { x: 3, y: 3 }])
-    /// let prop = SgfProp::<GoGame>::new("AB".to_string(), vec!["cd".to_string(), "dd".to_string()]);
+    /// let prop = SgfProp::<Go>::new("AB".to_string(), vec!["cd".to_string(), "dd".to_string()]);
     /// // SgfProp::Unknown("FOO", vec!["Text"])
-    /// let prop = SgfProp::<GoGame>::new("FOO".to_string(), vec!["Text".to_string()]);
+    /// let prop = SgfProp::<Go>::new("FOO".to_string(), vec!["Text".to_string()]);
     /// ```
     pub fn new(identifier: String, values: Vec<String>) -> Self {
         let result = match &identifier[..] {
@@ -256,16 +254,16 @@ impl<G: Game> SgfProp<G> {
         result.unwrap_or(Self::Invalid(identifier, values))
     }
 
-    /// Returns a the identifier associated with the `SgfProp`.
+    /// Returns a the identifier associated with the [`SgfProp`].
     ///
     /// # Examples
     /// ```
     /// use sgf_parse::SgfProp;
-    /// use sgf_parse::game::GoGame;
+    /// use sgf_parse::go::Go;
     ///
-    /// let prop = SgfProp::<GoGame>::new("W".to_string(), vec!["de".to_string()]);
+    /// let prop = SgfProp::<Go>::new("W".to_string(), vec!["de".to_string()]);
     /// assert_eq!(prop.identifier(), "W");
-    /// let prop = SgfProp::<GoGame>::new("FOO".to_string(), vec!["de".to_string()]);
+    /// let prop = SgfProp::<Go>::new("FOO".to_string(), vec!["de".to_string()]);
     /// assert_eq!(prop.identifier(), "FOO");
     /// ```
     pub fn identifier(&self) -> String {
@@ -342,16 +340,16 @@ impl<G: Game> SgfProp<G> {
         }
     }
 
-    /// Returns the `PropertyType` associated with the property.
+    /// Returns the [`PropertyType`] associated with the property.
     ///
     /// # Examples
     /// ```
     /// use sgf_parse::{PropertyType, SgfProp};
-    /// use sgf_parse::game::GoGame;
+    /// use sgf_parse::go::Go;
     ///
-    /// let prop = SgfProp::<GoGame>::new("W".to_string(), vec!["de".to_string()]);
+    /// let prop = SgfProp::<Go>::new("W".to_string(), vec!["de".to_string()]);
     /// assert_eq!(prop.property_type(), Some(PropertyType::Move));
-    /// let prop = SgfProp::<GoGame>::new("FOO".to_string(), vec!["de".to_string()]);
+    /// let prop = SgfProp::<Go>::new("FOO".to_string(), vec!["de".to_string()]);
     /// assert_eq!(prop.property_type(), None);
     /// ```
     pub fn property_type(&self) -> Option<PropertyType> {
@@ -408,6 +406,18 @@ impl<G: Game> SgfProp<G> {
         }
     }
 }
+
+// Error type for invalid SGF properties.
+#[derive(Debug)]
+pub struct SgfPropError {}
+
+impl std::fmt::Display for SgfPropError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Invalid property value")
+    }
+}
+
+impl std::error::Error for SgfPropError {}
 
 fn verify_empty(values: &[String]) -> Result<(), SgfPropError> {
     if !(values.is_empty() || (values.len() == 1 && values[0].is_empty())) {

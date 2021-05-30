@@ -1,21 +1,31 @@
 use std::collections::HashSet;
 use std::fmt;
 
-use super::traits::{Game, ToSgf};
-use super::{props, SgfNode};
-use crate::game::GameTree;
+use crate::games::Game;
+use crate::{props, GameTree, SgfNode};
 
-/// Returns the SGF as a `String` from a collection of `SgfNode` objects.
+/// Returns the serialized SGF text from a collection of [`GameTree`] objects.
 ///
 /// # Examples
 /// ```
-/// use sgf_parse::{parse, serialize};
+/// use sgf_parse::{serialize, SgfNode, SgfProp};
+/// use sgf_parse::go::Go;
 ///
-/// let original = "(;SZ[13:13];B[de](;W[ef])(;W[de];B[ac]))";
-/// let gametrees = parse(original).unwrap();
-/// let parsed = serialize(&gametrees);
+/// let first_node: SgfNode<Go> = {
+///     let children = vec![
+///         SgfNode::new(
+///             vec![SgfProp::new("B".to_string(),
+///             vec!["dd".to_string()])], vec![],
+///             false,
+///         ),
+///     ];
+///     SgfNode::new(vec![SgfProp::SZ((19, 19))], children, true)
+/// };
+/// let second_node: SgfNode<Go> = SgfNode::new(vec![SgfProp::C("A comment".into())], vec![], true);
+/// let gametrees = vec![first_node.into(), second_node.into()];
+/// let serialized = serialize(&gametrees);
 ///
-/// assert_eq!(parsed, original);
+/// assert_eq!(serialized, "(;SZ[19:19];B[dd])(;C[A comment])");
 /// ```
 pub fn serialize<'a>(nodes: impl IntoIterator<Item = &'a GameTree>) -> String {
     let node_text = nodes
@@ -24,6 +34,10 @@ pub fn serialize<'a>(nodes: impl IntoIterator<Item = &'a GameTree>) -> String {
         .collect::<Vec<String>>()
         .join(")(");
     format!("({})", node_text)
+}
+
+pub trait ToSgf {
+    fn to_sgf(&self) -> String;
 }
 
 impl<G: Game> fmt::Display for SgfNode<G> {
@@ -210,11 +224,11 @@ fn escape_string(s: &str) -> String {
 
 #[cfg(test)]
 mod test {
-    use super::super::parse;
     use super::serialize;
+    use crate::parse;
 
     #[test]
-    pub fn simple_sgf() {
+    fn simple_sgf() {
         let sgf = "(;C[Some comment];B[de]FOO[bar][baz];W[fe])(;B[de];W[ff])";
         let game_trees = parse(sgf).unwrap();
         let result = serialize(&game_trees);

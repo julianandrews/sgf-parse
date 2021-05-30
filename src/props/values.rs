@@ -77,6 +77,18 @@ impl FromStr for Color {
     }
 }
 
+impl std::convert::From<&str> for SimpleText {
+    fn from(s: &str) -> Self {
+        Self { text: s.to_owned() }
+    }
+}
+
+impl std::convert::From<&str> for Text {
+    fn from(s: &str) -> Self {
+        Self { text: s.to_owned() }
+    }
+}
+
 impl std::fmt::Display for SimpleText {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let text = format_text(&self.text)
