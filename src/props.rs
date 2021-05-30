@@ -1,100 +1,19 @@
+pub mod utils;
+mod values;
+
 use std::collections::HashSet;
-use std::fmt;
 use std::str::FromStr;
 
-/// An SGF [Double](https://www.red-bean.com/sgf/sgf4.html#double) value.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum Double {
-    One,
-    Two,
-}
+use crate::errors::SgfPropError;
+use crate::traits::Game;
+use utils::{
+    parse_elist_point, parse_list_point, parse_list_stone, parse_single_simple_text_value,
+    parse_tuple, split_compose,
+};
 
-/// An SGF [Color](https://www.red-bean.com/sgf/sgf4.html#types) value.
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum Color {
-    Black,
-    White,
-}
+pub use values::{Color, Double, SimpleText, Text};
 
-/// An SGF [Point](https://www.red-bean.com/sgf/go.html#types) value for the Game of Go.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Point {
-    pub x: u8,
-    pub y: u8,
-}
-
-/// An SGF [Move](https://www.red-bean.com/sgf/go.html#types) value for the Game of Go.
-///
-/// Moves may either be a pass, or a [Point](struct.Point.html)
-///
-/// # Examples
-/// ```
-/// use sgf_parse::{parse, Move, SgfProp};
-///
-/// let node = parse("(;B[de])").unwrap().into_iter().next().unwrap();
-/// for prop in node.properties() {
-///     match prop {
-///         SgfProp::B(Move::Move(point)) => println!("B move at {:?}", point),
-///         _ => {}
-///     }
-/// }
-/// ```
-#[derive(Copy, Clone, Debug, Eq, PartialEq)]
-pub enum Move {
-    Pass,
-    Move(Point),
-}
-
-/// An SGF [Text](https://www.red-bean.com/sgf/sgf4.html#types) value.
-///
-/// The text itself will be the raw text as stored in an sgf file. Displays formatted and escaped
-/// as [here](https://www.red-bean.com/sgf/sgf4.html#text).
-///
-/// # Examples
-/// ```
-/// use sgf_parse::Text;
-/// let text = Text { text: "Comment:\nnon-linebreak whitespace\treplaced".to_string() };
-/// assert_eq!(format!("{}", text), "Comment:\nnon-linebreak whitespace replaced");
-/// ```
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct Text {
-    pub text: String,
-}
-
-impl fmt::Display for Text {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let text = format_text(&self.text);
-        f.write_str(&text)
-    }
-}
-
-/// An SGF [SimpleText](https://www.red-bean.com/sgf/sgf4.html#types) value.
-///
-/// The text itself will be the raw text as stored in an sgf file. Displays formatted and escaped
-/// as [here](https://www.red-bean.com/sgf/sgf4.html#simpletext).
-///
-/// # Examples
-/// ```
-/// use sgf_parse::SimpleText;
-///
-/// let text = SimpleText { text: "Comment:\nall whitespace\treplaced".to_string() };
-/// assert_eq!(format!("{}", text), "Comment: all whitespace replaced");
-/// ```
-#[derive(Clone, Debug, Eq, PartialEq, Hash)]
-pub struct SimpleText {
-    pub text: String,
-}
-
-impl fmt::Display for SimpleText {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let text = format_text(&self.text)
-            .replace("\r\n", " ")
-            .replace("\n\r", " ")
-            .replace("\n", " ")
-            .replace("\r", " ");
-        f.write_str(&text)
-    }
-}
+// TODO: Handle game specific properties differently
 
 /// An SGF [property type](https://www.red-bean.com/sgf/sgf4.html#2.2.1).
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
@@ -109,9 +28,10 @@ pub enum PropertyType {
 /// An SGF Property with identifier and value.
 ///
 /// All [general properties](https://www.red-bean.com/sgf/properties.html) from the SGF
-/// specification and all [go specific properties](https://www.red-bean.com/sgf/go.html) will
-/// return the approprite enum instance with parsed data. Unrecognized properties, or properties
-/// from other games will return `Unknown(identifier, values)`.
+/// specification and all properties will return the approprite enum instance with parsed data.
+/// Unrecognized properties will return `SgfProp::Unknown(identifier, values)`. Recognized
+/// general or game specific properties with invalid values will return
+/// `SgfProp::Invalid(identifier, values)`.
 ///
 /// See [property value types](https://www.red-bean.com/sgf/sgf4.html#types) for a list of types
 /// recognized by SGF. For parsing purposes the following mappings are used:
@@ -121,22 +41,22 @@ pub enum PropertyType {
 /// * 'Color' => [Color](enum.Color.html)
 /// * 'SimpleText' => [SimpleText](struct.SimpleText.html)
 /// * 'Text' => [Text](struct.Text.html)
-/// * 'Point' => [Point](struct.Point.html)
-/// * 'Stone' => [Point](struct.Point.html)
-/// * 'Move' => [Move](enum.Move.html)
+/// * 'Point' => Game specific Point value (e.g.: [GoPoint](game/struct.GoPoint.html))
+/// * 'Stone' => Game specific Stone value (e.g.: [GoPoint](game/struct.GoPoint.html))
+/// * 'Move' => Game specific Move value (e.g.: [GoPoint](game/struct.GoMove.html))
 /// * 'List' => [HashSet](https://doc.rust-lang.org/std/collections/struct.HashSet.html)
-/// * 'Compose' => a [tuple](https://doc.rust-lang.org/std/primitive.tuple.html) of the composed values
+/// * 'Compose' => [tuple](https://doc.rust-lang.org/std/primitive.tuple.html) of the composed values
 #[derive(Clone, Debug, PartialEq)]
-pub enum SgfProp {
+pub enum SgfProp<G: Game> {
     // Move Properties
-    B(Move),
+    B(G::Move),
     KO,
     MN(i64),
-    W(Move),
+    W(G::Move),
     // Setup Properties
-    AB(HashSet<Point>),
-    AE(HashSet<Point>),
-    AW(HashSet<Point>),
+    AB(HashSet<G::Stone>),
+    AE(HashSet<G::Point>),
+    AW(HashSet<G::Stone>),
     PL(Color),
     // Node Annotation properties
     C(Text),
@@ -153,15 +73,15 @@ pub enum SgfProp {
     IT,
     TE(Double),
     // Markup Properties
-    AR(HashSet<(Point, Point)>),
-    CR(HashSet<Point>),
-    DD(HashSet<Point>),
-    LB(HashSet<(Point, SimpleText)>),
-    LN(HashSet<(Point, Point)>),
-    MA(HashSet<Point>),
-    SL(HashSet<Point>),
-    SQ(HashSet<Point>),
-    TR(HashSet<Point>),
+    AR(HashSet<(G::Point, G::Point)>),
+    CR(HashSet<G::Point>),
+    DD(HashSet<G::Point>),
+    LB(HashSet<(G::Point, SimpleText)>),
+    LN(HashSet<(G::Point, G::Point)>),
+    MA(HashSet<G::Point>),
+    SL(HashSet<G::Point>),
+    SQ(HashSet<G::Point>),
+    TR(HashSet<G::Point>),
     // Root Properties
     AP((SimpleText, SimpleText)),
     CA(SimpleText),
@@ -201,14 +121,14 @@ pub enum SgfProp {
     // Miscellaneous properties
     FG(Option<(i64, SimpleText)>),
     PM(i64),
-    VW(HashSet<Point>),
-    TB(HashSet<Point>),
-    TW(HashSet<Point>),
+    VW(HashSet<G::Point>),
+    TB(HashSet<G::Point>),
+    TW(HashSet<G::Point>),
     Unknown(String, Vec<String>),
     Invalid(String, Vec<String>),
 }
 
-impl SgfProp {
+impl<G: Game> SgfProp<G> {
     /// Returns a new property parsed from the provided identifier and values
     ///
     /// # Errors
@@ -232,9 +152,9 @@ impl SgfProp {
             "KO" => verify_empty(&values).map(|()| Self::KO),
             "MN" => parse_single_value(&values).map(Self::MN),
             "W" => parse_single_value(&values).map(Self::W),
-            "AB" => parse_list_point(&values).map(Self::AB),
-            "AE" => parse_list_point(&values).map(Self::AE),
-            "AW" => parse_list_point(&values).map(Self::AW),
+            "AB" => parse_list_stone::<G>(&values).map(Self::AB),
+            "AE" => parse_list_point::<G>(&values).map(Self::AE),
+            "AW" => parse_list_stone::<G>(&values).map(Self::AW),
             "PL" => parse_single_value(&values).map(Self::PL),
             "C" => parse_single_text_value(&values).map(Self::C),
             "DM" => parse_single_value(&values).map(Self::DM),
@@ -248,15 +168,15 @@ impl SgfProp {
             "IT" => verify_empty(&values).map(|()| Self::IT),
             "BM" => parse_single_value(&values).map(Self::BM),
             "TE" => parse_single_value(&values).map(Self::TE),
-            "AR" => parse_list_composed_point(&values).map(Self::AR),
-            "CR" => parse_list_point(&values).map(Self::CR),
-            "DD" => parse_elist_point(&values).map(Self::DD),
-            "LB" => parse_labels(&values).map(Self::LB),
-            "LN" => parse_list_composed_point(&values).map(Self::LN),
-            "MA" => parse_list_point(&values).map(Self::MA),
-            "SL" => parse_list_point(&values).map(Self::SL),
-            "SQ" => parse_list_point(&values).map(Self::SQ),
-            "TR" => parse_list_point(&values).map(Self::TR),
+            "AR" => parse_list_composed_point::<G>(&values).map(Self::AR),
+            "CR" => parse_list_point::<G>(&values).map(Self::CR),
+            "DD" => parse_elist_point::<G>(&values).map(Self::DD),
+            "LB" => parse_labels::<G>(&values).map(Self::LB),
+            "LN" => parse_list_composed_point::<G>(&values).map(Self::LN),
+            "MA" => parse_list_point::<G>(&values).map(Self::MA),
+            "SL" => parse_list_point::<G>(&values).map(Self::SL),
+            "SQ" => parse_list_point::<G>(&values).map(Self::SQ),
+            "TR" => parse_list_point::<G>(&values).map(Self::TR),
             "AP" => parse_application(&values).map(Self::AP),
             "CA" => parse_single_simple_text_value(&values).map(Self::CA),
             "FF" => match parse_single_value(&values) {
@@ -328,9 +248,9 @@ impl SgfProp {
                 }
                 _ => Err(SgfPropError {}),
             },
-            "VW" => parse_elist_point(&values).map(Self::VW),
-            "TB" => parse_elist_point(&values).map(Self::TB),
-            "TW" => parse_elist_point(&values).map(Self::TW),
+            "VW" => parse_elist_point::<G>(&values).map(Self::VW),
+            "TB" => parse_elist_point::<G>(&values).map(Self::TB),
+            "TW" => parse_elist_point::<G>(&values).map(Self::TW),
             _ => return Self::Unknown(identifier, values),
         };
         result.unwrap_or(Self::Invalid(identifier, values))
@@ -510,96 +430,9 @@ fn parse_single_text_value(values: &[String]) -> Result<Text, SgfPropError> {
     })
 }
 
-fn format_text(s: &str) -> String {
-    // See https://www.red-bean.com/sgf/sgf4.html#text
-    let mut output = vec![];
-    let chars: Vec<char> = s.chars().collect();
-    let mut i = 0;
-    while i < chars.len() {
-        let c = chars[i];
-        if c == '\\' && i + 1 < chars.len() {
-            i += 1;
-
-            // Remove soft line breaks
-            if chars[i] == '\n' {
-                if i + 1 < chars.len() && chars[i + 1] == '\r' {
-                    i += 1;
-                }
-            } else if chars[i] == '\r' {
-                if i + 1 < chars.len() && chars[i + 1] == '\n' {
-                    i += 1;
-                }
-            } else {
-                // Push any other literal char following '\'
-                output.push(chars[i]);
-            }
-        } else if c.is_whitespace() && c != '\r' && c != '\n' {
-            if i + 1 < chars.len() {
-                let next = chars[i + 1];
-                // Treat \r\n or \n\r as a single linebreak
-                if (c == '\n' && next == '\r') || (c == '\r' && next == '\n') {
-                    i += 1;
-                }
-            }
-            // Replace whitespace with ' '
-            output.push(' ');
-        } else {
-            output.push(c);
-        }
-        i += 1;
-    }
-
-    output.into_iter().collect()
-}
-
-fn parse_single_simple_text_value(values: &[String]) -> Result<SimpleText, SgfPropError> {
-    if values.len() != 1 {
-        return Err(SgfPropError {});
-    }
-    Ok(SimpleText {
-        text: values[0].clone(),
-    })
-}
-
-fn parse_list_point(values: &[String]) -> Result<HashSet<Point>, SgfPropError> {
-    let points = parse_elist_point(values)?;
-    if points.is_empty() {
-        return Err(SgfPropError {});
-    }
-
-    Ok(points)
-}
-
-fn parse_elist_point(values: &[String]) -> Result<HashSet<Point>, SgfPropError> {
-    let mut points = HashSet::new();
-    for value in values.iter() {
-        if value.contains(':') {
-            let (upper_left, lower_right): (Point, Point) = parse_tuple(value)?;
-            if upper_left.x > lower_right.x || upper_left.y > lower_right.y {
-                return Err(SgfPropError {});
-            }
-            for x in upper_left.x..=lower_right.x {
-                for y in upper_left.y..=lower_right.y {
-                    let point = Point { x, y };
-                    if points.contains(&point) {
-                        return Err(SgfPropError {});
-                    }
-                    points.insert(point);
-                }
-            }
-        } else {
-            let point = value.parse()?;
-            if points.contains(&point) {
-                return Err(SgfPropError {});
-            }
-            points.insert(point);
-        }
-    }
-
-    Ok(points)
-}
-
-fn parse_list_composed_point(values: &[String]) -> Result<HashSet<(Point, Point)>, SgfPropError> {
+pub fn parse_list_composed_point<G: Game>(
+    values: &[String],
+) -> Result<HashSet<(G::Point, G::Point)>, SgfPropError> {
     let mut pairs = HashSet::new();
     for value in values.iter() {
         let pair = parse_tuple(value)?;
@@ -610,23 +443,6 @@ fn parse_list_composed_point(values: &[String]) -> Result<HashSet<(Point, Point)
     }
 
     Ok(pairs)
-}
-
-fn split_compose(value: &str) -> Result<(&str, &str), SgfPropError> {
-    let parts: Vec<&str> = value.split(':').collect();
-    if parts.len() != 2 {
-        return Err(SgfPropError {});
-    }
-
-    Ok((parts[0], parts[1]))
-}
-
-fn parse_tuple<T1: FromStr, T2: FromStr>(value: &str) -> Result<(T1, T2), SgfPropError> {
-    let (s1, s2) = split_compose(value)?;
-    Ok((
-        s1.parse().map_err(|_| SgfPropError {})?,
-        s2.parse().map_err(|_| SgfPropError {})?,
-    ))
 }
 
 fn parse_size(values: &[String]) -> Result<(u8, u8), SgfPropError> {
@@ -642,7 +458,9 @@ fn parse_size(values: &[String]) -> Result<(u8, u8), SgfPropError> {
     }
 }
 
-fn parse_labels(values: &[String]) -> Result<HashSet<(Point, SimpleText)>, SgfPropError> {
+fn parse_labels<G: Game>(
+    values: &[String],
+) -> Result<HashSet<(G::Point, SimpleText)>, SgfPropError> {
     let mut labels = HashSet::new();
     for value in values.iter() {
         let (s1, s2) = split_compose(value)?;
@@ -690,141 +508,4 @@ fn parse_application(values: &[String]) -> Result<(SimpleText, SimpleText), SgfP
             text: s2.to_string(),
         },
     ))
-}
-
-impl FromStr for Move {
-    type Err = SgfPropError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "" => Ok(Self::Pass),
-            _ => Ok(Self::Move(s.parse()?)),
-        }
-    }
-}
-
-impl FromStr for Point {
-    type Err = SgfPropError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        fn map_char(c: char) -> Result<u8, SgfPropError> {
-            if c.is_ascii_lowercase() {
-                Ok(c as u8 - b'a')
-            } else if c.is_ascii_uppercase() {
-                Ok(c as u8 - b'A')
-            } else {
-                Err(SgfPropError {})
-            }
-        }
-
-        let chars: Vec<char> = s.chars().collect();
-        if chars.len() != 2 {
-            return Err(SgfPropError {});
-        }
-
-        Ok(Self {
-            x: map_char(chars[0])?,
-            y: map_char(chars[1])?,
-        })
-    }
-}
-
-impl FromStr for Double {
-    type Err = SgfPropError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s == "1" {
-            Ok(Self::One)
-        } else if s == "2" {
-            Ok(Self::Two)
-        } else {
-            Err(SgfPropError {})
-        }
-    }
-}
-
-impl FromStr for Color {
-    type Err = SgfPropError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s == "B" {
-            Ok(Self::Black)
-        } else if s == "W" {
-            Ok(Self::White)
-        } else {
-            Err(SgfPropError {})
-        }
-    }
-}
-
-/// Error type for invalid SGF properties.
-#[derive(Debug)]
-pub struct SgfPropError {}
-
-impl std::fmt::Display for SgfPropError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Invalid property value")
-    }
-}
-
-impl std::error::Error for SgfPropError {}
-
-#[cfg(test)]
-mod test {
-    use std::collections::HashSet;
-
-    #[test]
-    pub fn format_text() {
-        let text = super::Text {
-            text: "Comment with\trandom whitespace\nescaped \\] and \\\\ and a soft \\\nlinebreak"
-                .to_string(),
-        };
-        let expected = "Comment with random whitespace\nescaped ] and \\ and a soft linebreak";
-
-        assert_eq!(format!("{}", text), expected);
-    }
-
-    #[test]
-    pub fn format_simple_text() {
-        let text = super::SimpleText { text:
-            "Comment with\trandom\r\nwhitespace\n\rescaped \\] and \\\\ and\na soft \\\nlinebreak"
-                .to_string()
-        };
-        let expected = "Comment with random whitespace escaped ] and \\ and a soft linebreak";
-
-        assert_eq!(format!("{}", text), expected);
-    }
-
-    #[test]
-    pub fn parse_list_point() {
-        let values = vec!["pq:ss".to_string(), "so".to_string(), "lr:ns".to_string()];
-        let expected: HashSet<_> = vec![
-            (15, 16),
-            (16, 16),
-            (17, 16),
-            (18, 16),
-            (15, 17),
-            (16, 17),
-            (17, 17),
-            (18, 17),
-            (15, 18),
-            (16, 18),
-            (17, 18),
-            (18, 18),
-            (18, 14),
-            (11, 17),
-            (12, 17),
-            (13, 17),
-            (11, 18),
-            (12, 18),
-            (13, 18),
-        ]
-        .into_iter()
-        .map(|(x, y)| super::Point { x, y })
-        .collect();
-
-        let result: HashSet<_> = super::parse_list_point(&values).unwrap();
-
-        assert_eq!(result, expected);
-    }
 }

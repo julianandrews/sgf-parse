@@ -1,9 +1,11 @@
 use std::ptr::NonNull;
 
-use super::errors::SgfParseError;
-use super::lexer::{tokenize, Token};
-use super::props::SgfProp;
-use super::sgf_node::{SgfNode, SgfNodeBuilder};
+use crate::errors::SgfParseError;
+use crate::game::{GameTree, GameType, GoGame};
+use crate::lexer::{tokenize, Token};
+use crate::traits::Game;
+use crate::SgfNode;
+use crate::SgfProp;
 
 /// Returns a Vector of the root `SgfNodes` parsed from the provided text.
 ///
@@ -16,7 +18,7 @@ use super::sgf_node::{SgfNode, SgfNodeBuilder};
 /// # Examples
 /// ```
 /// use sgf_parse::parse;
-///
+/// else if
 /// // Prints the all the properties for the two root nodes in the SGF
 /// let sgf = "(;SZ[9]C[Some comment];B[de];W[fe])(;B[de];W[ff])";
 /// for node in parse(&sgf).unwrap().iter() {
@@ -25,23 +27,74 @@ use super::sgf_node::{SgfNode, SgfNodeBuilder};
 ///     }
 /// }
 /// ```
-pub fn parse(text: &str) -> Result<Vec<SgfNode>, SgfParseError> {
-    let mut collection: Vec<SgfNodeBuilder> = vec![];
-    // Pointer to the `Vec` of children we're currently building.
+pub fn parse(text: &str) -> Result<Vec<GameTree>, SgfParseError> {
+    let tokens = tokenize(text)
+        .map(|result| match result {
+            Err(e) => Err(SgfParseError::LexerError(e)),
+            Ok((token, _span)) => Ok(token),
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    split_by_gametree(&tokens)?
+        .into_iter()
+        .map(|tokens| match find_gametype(tokens)? {
+            GameType::Go => parse_gametree::<GoGame>(tokens),
+            GameType::Unknown => todo!(),
+        })
+        .collect::<Result<_, _>>()
+}
+
+// Split the tokens up into individual gametrees.
+//
+// This will let us easily scan each gametree for GM properties.
+// Only considers StartGameTree/EndGameTree tokens.
+fn split_by_gametree(tokens: &[Token]) -> Result<Vec<&[Token]>, SgfParseError> {
+    let mut gametrees = vec![];
+    let mut gametree_depth: u64 = 0;
+    let mut slice_start = 0;
+    for (i, token) in tokens.iter().enumerate() {
+        match token {
+            Token::StartGameTree => gametree_depth += 1,
+            Token::EndGameTree => {
+                if gametree_depth == 0 {
+                    return Err(SgfParseError::UnexpectedGameTreeEnd);
+                }
+                gametree_depth -= 1;
+                if gametree_depth == 0 {
+                    gametrees.push(&tokens[slice_start..=i]);
+                    slice_start = i + 1;
+                }
+            }
+            _ => {}
+        }
+    }
+    if gametree_depth != 0 {
+        return Err(SgfParseError::UnexpectedEndOfData);
+    }
+
+    Ok(gametrees)
+}
+
+// Parse a single gametree of a known type.
+fn parse_gametree<G: Game>(tokens: &[Token]) -> Result<GameTree, SgfParseError>
+where
+    SgfNode<G>: std::convert::Into<GameTree>,
+{
+    // TODO: Rewrite this with safe code
+    let mut collection: Vec<SgfNode<G>> = vec![];
+    // //// Pointer to the `Vec` of children we're currently building.
     let mut current_node_list_ptr = NonNull::new(&mut collection).unwrap();
     // Stack of pointers to incomplete `Vec`s of children.
-    let mut incomplete_child_lists: Vec<NonNull<Vec<SgfNodeBuilder>>> = vec![];
-    // Using pointers involves some unsafe calls, but should be ok here.
-    // Since pointers are always initialized from real structs, and those structs
-    // live for the whole function body, our only safety concern is dangling pointers.
-    //
-    // Since we build the tree traversing depth-first those structs shouldn't be
-    // modified while the pointer is live. Heap-allocated contents of their
-    // `children` may be modified, but that shouldn't change anything.
+    let mut incomplete_child_lists: Vec<NonNull<Vec<SgfNode<G>>>> = vec![];
+    //// Using pointers involves some unsafe calls, but should be ok here.
+    //// Since pointers are always initialized from real structs, and those structs
+    //// live for the whole function body, our only safety concern is dangling pointers.
+    ////
+    //// Since we build the tree traversing depth-first those structs shouldn't be
+    //// modified while the pointer is live. Heap-allocated contents of their
+    //// `children` may be modified, but that shouldn't change anything.
 
-    let mut tokens = tokenize(text).peekable();
-    while let Some(result) = tokens.next() {
-        let (token, _span) = result?;
+    let mut tokens = tokens.iter().peekable();
+    while let Some(token) = tokens.next() {
         match token {
             Token::StartGameTree => {
                 // SGF game trees must have a root node.
@@ -58,16 +111,17 @@ pub fn parse(text: &str) -> Result<Vec<SgfNode>, SgfParseError> {
                 None => return Err(SgfParseError::UnexpectedGameTreeEnd),
             },
             Token::StartNode => {
-                let mut new_node = SgfNodeBuilder::new();
+                let mut new_node = SgfNode::default();
                 let mut prop_tokens = vec![];
-                while let Some(Ok((Token::Property(_), _))) = tokens.peek() {
-                    prop_tokens.push(tokens.next().unwrap()?);
+                while let Some(Token::Property(_)) = tokens.peek() {
+                    prop_tokens.push(tokens.next().unwrap());
                 }
                 for token in prop_tokens {
                     match token {
-                        (Token::Property((identifier, values)), _) => {
-                            new_node.properties.push(SgfProp::new(identifier, values))
-                        }
+                        // TODO: Consider refactoring to consume tokens and avoid clones.
+                        Token::Property((identifier, values)) => new_node
+                            .properties
+                            .push(SgfProp::new(identifier.clone(), values.clone())),
                         _ => unreachable!(),
                     }
                 }
@@ -79,27 +133,45 @@ pub fn parse(text: &str) -> Result<Vec<SgfNode>, SgfParseError> {
             Token::Property(_) => return Err(SgfParseError::UnexpectedProperty),
         }
     }
+
     if !incomplete_child_lists.is_empty() {
         return Err(SgfParseError::UnexpectedEndOfData);
     }
+    // TODO: Check exactly one in collection
+    Ok(collection.into_iter().next().unwrap().into())
+}
 
-    collection
-        .into_iter()
-        .map(|mut node| {
-            node.is_root = true;
-            node.build()
+// Figure out which game to parse from a slice of tokens.
+//
+// This function is necessary because we need to know the game before we can do the parsing.
+fn find_gametype(tokens: &[Token]) -> Result<GameType, SgfParseError> {
+    let gm_props: Vec<_> = tokens
+        .iter()
+        .filter_map(|token| match token {
+            Token::Property((prop_ident, prop_values)) => {
+                if prop_ident == "GM" {
+                    Some(prop_values)
+                } else {
+                    None
+                }
+            }
+            _ => None,
         })
-        .collect::<Result<_, _>>()
-        .map_err(|e| e.into())
+        .collect();
+    match gm_props.len() {
+        0 => Ok(GameType::Go),
+        1 => Ok(GameType::Go), // TODO
+        _ => Err(SgfParseError::UnexpectedProperty),
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use super::super::props::*;
-    use super::super::serialize;
-    use super::{parse, SgfNode};
+    use super::{parse, GameTree, GoGame, SgfNode};
+    use crate::props::*;
+    use crate::serialize;
 
-    fn load_test_sgf() -> Result<Vec<SgfNode>, Box<dyn std::error::Error>> {
+    fn load_test_sgf() -> Result<Vec<GameTree>, Box<dyn std::error::Error>> {
         // See https://www.red-bean.com/sgf/examples/
         let mut sgf_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
         sgf_path.push("resources/test/ff4_ex.sgf");
@@ -108,7 +180,7 @@ mod test {
         Ok(parse(&data)?)
     }
 
-    fn node_depth(mut sgf_node: &SgfNode) -> u64 {
+    fn node_depth(mut sgf_node: &SgfNode<GoGame>) -> u64 {
         let mut depth = 1;
         while sgf_node.children().count() > 0 {
             depth += 1;
@@ -125,14 +197,20 @@ mod test {
 
     #[test]
     fn gametree_one_has_five_variations() {
-        let sgf_nodes = load_test_sgf().unwrap();
-        assert_eq!(sgf_nodes[0].children().count(), 5);
+        let game_trees = load_test_sgf().unwrap();
+        let result = game_trees[0].get_go_node();
+        assert!(result.is_ok());
+        let sgf_node = result.unwrap();
+        assert_eq!(sgf_node.children().count(), 5);
     }
 
     #[test]
     fn gametree_one_has_size_19() {
-        let sgf_nodes = load_test_sgf().unwrap();
-        match sgf_nodes[0].get_property("SZ") {
+        let game_trees = load_test_sgf().unwrap();
+        let result = game_trees[0].get_go_node();
+        assert!(result.is_ok());
+        let sgf_node = result.unwrap();
+        match sgf_node.get_property("SZ") {
             Some(SgfProp::SZ(size)) => assert_eq!(size, &(19, 19)),
             _ => unreachable!("Expected size property"),
         }
@@ -140,8 +218,11 @@ mod test {
 
     #[test]
     fn gametree_variation_depths() {
-        let sgf_nodes = load_test_sgf().unwrap();
-        let children: Vec<_> = sgf_nodes[0].children().collect();
+        let game_trees = load_test_sgf().unwrap();
+        let result = game_trees[0].get_go_node();
+        assert!(result.is_ok());
+        let sgf_node = result.unwrap();
+        let children: Vec<_> = sgf_node.children().collect();
         assert_eq!(node_depth(children[0]), 13);
         assert_eq!(node_depth(children[1]), 4);
         assert_eq!(node_depth(children[2]), 4);
@@ -149,8 +230,11 @@ mod test {
 
     #[test]
     fn gametree_two_has_one_variation() {
-        let sgf_nodes = load_test_sgf().unwrap();
-        assert_eq!(sgf_nodes[1].children().count(), 1);
+        let game_trees = load_test_sgf().unwrap();
+        let result = game_trees[1].get_go_node();
+        assert!(result.is_ok());
+        let sgf_node = result.unwrap();
+        assert_eq!(sgf_node.children().count(), 1);
     }
 
     #[test]
@@ -163,16 +247,16 @@ mod test {
     #[test]
     fn invalid_property() {
         let input = "(;GM[1]W[rp.pmonpoqprpsornqmpm])";
-        let result = parse(&input).unwrap();
+        let game_trees = parse(&input).unwrap();
+        let result = game_trees[0].get_go_node();
+        assert!(result.is_ok());
+        let sgf_node = result.unwrap();
         let expected = vec![
             SgfProp::GM(1),
             SgfProp::Invalid("W".to_string(), vec!["rp.pmonpoqprpsornqmpm".to_string()]),
         ];
-        assert_eq!(result.len(), 1);
-        assert_eq!(
-            result[0].properties().cloned().collect::<Vec<_>>(),
-            expected
-        );
+        assert_eq!(game_trees.len(), 1);
+        assert_eq!(sgf_node.properties().cloned().collect::<Vec<_>>(), expected);
     }
 
     #[test]

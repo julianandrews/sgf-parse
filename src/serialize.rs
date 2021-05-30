@@ -1,7 +1,9 @@
 use std::collections::HashSet;
 use std::fmt;
 
+use super::traits::{Game, ToSgf};
 use super::{props, SgfNode};
+use crate::game::GameTree;
 
 /// Returns the SGF as a `String` from a collection of `SgfNode` objects.
 ///
@@ -15,7 +17,7 @@ use super::{props, SgfNode};
 ///
 /// assert_eq!(parsed, original);
 /// ```
-pub fn serialize<'a>(nodes: impl IntoIterator<Item = &'a SgfNode>) -> String {
+pub fn serialize<'a>(nodes: impl IntoIterator<Item = &'a GameTree>) -> String {
     let node_text = nodes
         .into_iter()
         .map(|node| node.to_string())
@@ -24,7 +26,7 @@ pub fn serialize<'a>(nodes: impl IntoIterator<Item = &'a SgfNode>) -> String {
     format!("({})", node_text)
 }
 
-impl fmt::Display for SgfNode {
+impl<G: Game> fmt::Display for SgfNode<G> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let prop_string = self
             .properties()
@@ -45,27 +47,14 @@ impl fmt::Display for SgfNode {
     }
 }
 
-trait ToSgfPropValueString {
-    fn to_sgf(&self) -> String;
-}
-
-impl<A: ToSgfPropValueString, B: ToSgfPropValueString> ToSgfPropValueString for HashSet<(A, B)> {
-    fn to_sgf(&self) -> String {
-        self.iter()
-            .map(|x| x.to_sgf())
-            .collect::<Vec<String>>()
-            .join("][")
-    }
-}
-
 // Unknown properties.
-impl ToSgfPropValueString for Vec<String> {
+impl ToSgf for Vec<String> {
     fn to_sgf(&self) -> String {
         self.join("][")
     }
 }
 
-impl ToSgfPropValueString for HashSet<props::Point> {
+impl<P: ToSgf> ToSgf for HashSet<P> {
     fn to_sgf(&self) -> String {
         self.iter()
             .map(|x| x.to_sgf())
@@ -74,13 +63,13 @@ impl ToSgfPropValueString for HashSet<props::Point> {
     }
 }
 
-impl<A: ToSgfPropValueString, B: ToSgfPropValueString> ToSgfPropValueString for (A, B) {
+impl<A: ToSgf, B: ToSgf> ToSgf for (A, B) {
     fn to_sgf(&self) -> String {
         format!("{}:{}", self.0.to_sgf(), self.1.to_sgf())
     }
 }
 
-impl<T: ToSgfPropValueString> ToSgfPropValueString for Option<T> {
+impl<T: ToSgf> ToSgf for Option<T> {
     fn to_sgf(&self) -> String {
         match self {
             None => "".to_string(),
@@ -89,25 +78,25 @@ impl<T: ToSgfPropValueString> ToSgfPropValueString for Option<T> {
     }
 }
 
-impl ToSgfPropValueString for u8 {
+impl ToSgf for u8 {
     fn to_sgf(&self) -> String {
         self.to_string()
     }
 }
 
-impl ToSgfPropValueString for i64 {
+impl ToSgf for i64 {
     fn to_sgf(&self) -> String {
         self.to_string()
     }
 }
 
-impl ToSgfPropValueString for f64 {
+impl ToSgf for f64 {
     fn to_sgf(&self) -> String {
         self.to_string()
     }
 }
 
-impl ToSgfPropValueString for props::Double {
+impl ToSgf for props::Double {
     fn to_sgf(&self) -> String {
         match self {
             Self::One => "1".to_string(),
@@ -116,7 +105,7 @@ impl ToSgfPropValueString for props::Double {
     }
 }
 
-impl ToSgfPropValueString for props::Color {
+impl ToSgf for props::Color {
     fn to_sgf(&self) -> String {
         match self {
             Self::Black => "B".to_string(),
@@ -125,34 +114,19 @@ impl ToSgfPropValueString for props::Color {
     }
 }
 
-impl ToSgfPropValueString for props::Point {
-    fn to_sgf(&self) -> String {
-        format!("{}{}", (self.x + b'a') as char, (self.y + b'a') as char)
-    }
-}
-
-impl ToSgfPropValueString for props::Move {
-    fn to_sgf(&self) -> String {
-        match self {
-            Self::Pass => "".to_string(),
-            Self::Move(point) => point.to_sgf(),
-        }
-    }
-}
-
-impl ToSgfPropValueString for props::Text {
+impl ToSgf for props::Text {
     fn to_sgf(&self) -> String {
         escape_string(&self.text)
     }
 }
 
-impl ToSgfPropValueString for props::SimpleText {
+impl ToSgf for props::SimpleText {
     fn to_sgf(&self) -> String {
         escape_string(&self.text)
     }
 }
 
-impl fmt::Display for props::SgfProp {
+impl<G: Game> fmt::Display for props::SgfProp<G> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let prop_string = match self {
             Self::B(x) => x.to_sgf(),
@@ -243,8 +217,8 @@ mod test {
     #[test]
     pub fn simple_sgf() {
         let sgf = "(;C[Some comment];B[de]FOO[bar][baz];W[fe])(;B[de];W[ff])";
-        let sgf_nodes = parse(sgf).unwrap();
-        let result = serialize(&sgf_nodes);
+        let game_trees = parse(sgf).unwrap();
+        let result = serialize(&game_trees);
         assert_eq!(result, sgf);
     }
 }

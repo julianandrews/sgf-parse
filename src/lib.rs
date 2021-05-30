@@ -8,13 +8,15 @@
 //! [SgfNode::into_builder](struct.SgfNode.html#method.into_builder).
 
 pub mod errors;
+pub mod game;
 mod lexer;
 mod parser;
 mod props;
 mod serialize;
 mod sgf_node;
+mod traits;
 
 pub use parser::parse;
-pub use props::{Color, Double, Move, Point, PropertyType, SgfProp, SimpleText, Text};
+pub use props::{Color, Double, PropertyType, SgfProp, SimpleText, Text};
 pub use serialize::serialize;
-pub use sgf_node::{SgfNode, SgfNodeBuilder};
+pub use sgf_node::SgfNode;
