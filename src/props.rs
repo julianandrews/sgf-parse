@@ -442,9 +442,12 @@ fn parse_single_text_value(values: &[String]) -> Result<Text, SgfPropError> {
     })
 }
 
+// Clippy doesn't like the complexity of `parse_list_composed_point`'s signature.
+type ComposedPointSet<G> = HashSet<(<G as Game>::Point, <G as Game>::Point)>;
+
 fn parse_list_composed_point<G: Game>(
     values: &[String],
-) -> Result<HashSet<(G::Point, G::Point)>, SgfPropError> {
+) -> Result<ComposedPointSet<G>, SgfPropError> {
     let mut pairs = HashSet::new();
     for value in values.iter() {
         let pair = parse_tuple(value)?;

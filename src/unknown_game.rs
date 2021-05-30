@@ -21,10 +21,7 @@ impl Game for UnknownGame {
     type Point = SgfString;
 
     fn parse_point_list(values: &[String]) -> Result<HashSet<Self::Point>, SgfPropError> {
-        Ok(values
-            .into_iter()
-            .map(|value| value.parse().unwrap())
-            .collect())
+        Ok(values.iter().map(|value| value.parse().unwrap()).collect())
     }
 
     fn parse_stone_list(values: &[String]) -> Result<HashSet<Self::Stone>, SgfPropError> {
@@ -46,8 +43,8 @@ impl std::str::FromStr for SgfString {
     }
 }
 
-impl std::convert::Into<SgfString> for &str {
-    fn into(self) -> SgfString {
-        SgfString(self.to_owned())
+impl std::convert::From<&str> for SgfString {
+    fn from(s: &str) -> Self {
+        SgfString(s.to_owned())
     }
 }
