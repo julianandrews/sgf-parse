@@ -1,10 +1,8 @@
 use std::collections::HashSet;
 
-use crate::games::Game;
-use crate::props::utils::parse_tuple;
-use crate::props::SgfPropError;
-use crate::serialize::ToSgf;
-use crate::{SgfNode, SgfParseError};
+use crate::props::parse::{parse_elist, parse_single_value};
+use crate::props::{FromCompressedList, PropertyType, SgfPropError, ToSgf};
+use crate::{SgfNode, SgfParseError, SgfProp};
 
 /// Returns the [`SgfNode`] values for Go games parsed from the provided text.
 ///
@@ -25,7 +23,7 @@ use crate::{SgfNode, SgfParseError};
 ///     }
 /// }
 /// ```
-pub fn parse(text: &str) -> Result<Vec<SgfNode<Go>>, SgfParseError> {
+pub fn parse(text: &str) -> Result<Vec<SgfNode<Prop>>, SgfParseError> {
     let gametrees = crate::parse(text)?;
     gametrees
         .into_iter()
@@ -33,21 +31,14 @@ pub fn parse(text: &str) -> Result<Vec<SgfNode<Go>>, SgfParseError> {
         .collect::<Result<Vec<_>, _>>()
 }
 
-/// Zero-Sized type for the game of Go.
-///
-/// This type is used to construct [`crate::SgfNode`] and [`crate::SgfProp`] types for the game of Go.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct Go {}
-
 /// An SGF [Point](https://www.red-bean.com/sgf/go.html#types) value for the Game of Go.
 ///
 /// # Examples
 /// ```
-/// use sgf_parse::SgfProp;
-/// use sgf_parse::go::{Go, Move, Point};
+/// use sgf_parse::go::{Prop, Move, Point};
 ///
 /// let point = Point {x: 10, y: 10};
-/// let prop = SgfProp::<Go>::B(Move::Move(point));
+/// let prop = Prop::B(Move::Move(point));
 /// ```
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct Point {
@@ -59,13 +50,12 @@ pub struct Point {
 ///
 /// # Examples
 /// ```
-/// use sgf_parse::SgfProp;
-/// use sgf_parse::go::{parse, Move};
+/// use sgf_parse::go::{parse, Move, Prop};
 ///
 /// let node = parse("(;B[de])").unwrap().into_iter().next().unwrap();
 /// for prop in node.properties() {
 ///     match prop {
-///         SgfProp::B(Move::Move(point)) => println!("B move at {:?}", point),
+///         Prop::B(Move::Move(point)) => println!("B move at {:?}", point),
 ///         _ => {}
 ///     }
 /// }
@@ -76,42 +66,104 @@ pub enum Move {
     Move(Point),
 }
 
-impl Game for Go {
-    type Move = Move;
-    type Stone = Point;
-    type Point = Point;
+sgf_prop! {
+    Prop, Move, Point, Point,
+    {
+        HA(i64),
+        KM(f64),
+        TB(HashSet<Point>),
+        TW(HashSet<Point>),
+    }
+}
 
-    fn parse_point_list(values: &[String]) -> Result<HashSet<Self::Point>, SgfPropError> {
-        let mut points = HashSet::new();
-        for value in values.iter() {
-            if value.contains(':') {
-                let (upper_left, lower_right): (Self::Point, Self::Point) = parse_tuple(value)?;
-                if upper_left.x > lower_right.x || upper_left.y > lower_right.y {
-                    return Err(SgfPropError {});
-                }
-                for x in upper_left.x..=lower_right.x {
-                    for y in upper_left.y..=lower_right.y {
-                        let point = Self::Point { x, y };
-                        if points.contains(&point) {
-                            return Err(SgfPropError {});
+impl SgfProp for Prop {
+    type Move = Move;
+    type Point = Point;
+    type Stone = Point;
+
+    fn new(identifier: String, values: Vec<String>) -> Self {
+        match Prop::parse_general_prop(identifier, values) {
+            Self::Unknown(identifier, values) => match &identifier[..] {
+                "KM" => parse_single_value(&values)
+                    .map_or_else(|_| Self::Invalid(identifier, values), Self::KM),
+
+                "HA" => match parse_single_value(&values) {
+                    Ok(value) => {
+                        if value < 2 {
+                            Self::Invalid(identifier, values)
+                        } else {
+                            Self::HA(value)
                         }
-                        points.insert(point);
                     }
-                }
-            } else {
-                let point = value.parse()?;
+                    _ => Self::Invalid(identifier, values),
+                },
+                "TB" => parse_elist(&values)
+                    .map_or_else(|_| Self::Invalid(identifier, values), Self::TB),
+                "TW" => parse_elist(&values)
+                    .map_or_else(|_| Self::Invalid(identifier, values), Self::TW),
+                _ => Self::Unknown(identifier, values),
+            },
+            prop => prop,
+        }
+    }
+
+    fn identifier(&self) -> String {
+        match self.general_identifier() {
+            Some(identifier) => identifier.to_string(),
+            None => match self {
+                Self::KM(_) => "KM".to_string(),
+                Self::HA(_) => "HA".to_string(),
+                Self::TB(_) => "TB".to_string(),
+                Self::TW(_) => "TW".to_string(),
+                _ => panic!("Unimplemented identifier for {:?}", self),
+            },
+        }
+    }
+
+    fn property_type(&self) -> Option<PropertyType> {
+        match self.general_property_type() {
+            Some(property_type) => Some(property_type),
+            None => match self {
+                Self::HA(_) => Some(PropertyType::GameInfo),
+                Self::KM(_) => Some(PropertyType::GameInfo),
+                _ => None,
+            },
+        }
+    }
+}
+
+impl std::fmt::Display for Prop {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let prop_string = match self.serialize_prop_value() {
+            Some(s) => s,
+            None => match self {
+                Self::HA(x) => x.to_sgf(),
+                Self::KM(x) => x.to_sgf(),
+                Self::TB(x) => x.to_sgf(),
+                Self::TW(x) => x.to_sgf(),
+                _ => panic!("Unimplemented identifier for {:?}", self),
+            },
+        };
+        write!(f, "{}[{}]", self.identifier(), prop_string)
+    }
+}
+
+impl FromCompressedList for Point {
+    fn from_compressed_list(ul: &Self, lr: &Self) -> Result<HashSet<Self>, SgfPropError> {
+        let mut points = HashSet::new();
+        if ul.x > lr.x || ul.y > lr.y {
+            return Err(SgfPropError {});
+        }
+        for x in ul.x..=lr.x {
+            for y in ul.y..=lr.y {
+                let point = Self { x, y };
                 if points.contains(&point) {
                     return Err(SgfPropError {});
                 }
                 points.insert(point);
             }
         }
-
         Ok(points)
-    }
-
-    fn parse_stone_list(values: &[String]) -> Result<HashSet<Self::Stone>, SgfPropError> {
-        Self::parse_point_list(values)
     }
 }
 

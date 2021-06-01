@@ -89,6 +89,22 @@ impl std::convert::From<&str> for Text {
     }
 }
 
+impl FromStr for SimpleText {
+    type Err = SgfPropError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(s.into())
+    }
+}
+
+impl FromStr for Text {
+    type Err = SgfPropError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(s.into())
+    }
+}
+
 impl std::fmt::Display for SimpleText {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let text = format_text(&self.text)

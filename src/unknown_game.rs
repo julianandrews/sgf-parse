@@ -1,50 +1,51 @@
-use crate::games::Game;
-use crate::props::SgfPropError;
-use crate::serialize::ToSgf;
+use crate::props::{FromCompressedList, PropertyType, SgfPropError, ToSgf};
+use crate::SgfProp;
 use std::collections::HashSet;
 
-/// Zero-Sized type for unknown games.
-///
-/// This type is used to construct [`crate::SgfNode`] and [`crate::SgfProp`] types.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
-pub struct UnknownGame {}
+sgf_prop! {
+    Prop, String, String, String,
+    { }
+}
 
-/// Wrapper type around string for all UnknownGame types.
-///
-/// All properties are just stored as strings.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SgfString(String);
+impl SgfProp for Prop {
+    type Move = String;
+    type Point = String;
+    type Stone = String;
 
-impl Game for UnknownGame {
-    type Move = SgfString;
-    type Stone = SgfString;
-    type Point = SgfString;
-
-    fn parse_point_list(values: &[String]) -> Result<HashSet<Self::Point>, SgfPropError> {
-        Ok(values.iter().map(|value| value.parse().unwrap()).collect())
+    fn new(identifier: String, values: Vec<String>) -> Self {
+        Self::parse_general_prop(identifier, values)
     }
 
-    fn parse_stone_list(values: &[String]) -> Result<HashSet<Self::Stone>, SgfPropError> {
-        Self::parse_point_list(values)
+    fn identifier(&self) -> String {
+        match self.general_identifier() {
+            Some(identifier) => identifier.to_string(),
+            None => panic!("Unimplemented identifier for {:?}", self),
+        }
+    }
+
+    fn property_type(&self) -> Option<PropertyType> {
+        self.general_property_type()
     }
 }
 
-impl ToSgf for SgfString {
+impl std::fmt::Display for Prop {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let prop_string = match self.serialize_prop_value() {
+            Some(s) => s,
+            None => panic!("Unimplemented identifier for {:?}", self),
+        };
+        write!(f, "{}[{}]", self.identifier(), prop_string)
+    }
+}
+
+impl FromCompressedList for String {
+    fn from_compressed_list(_ul: &Self, _lr: &Self) -> Result<HashSet<Self>, SgfPropError> {
+        unimplemented!();
+    }
+}
+
+impl ToSgf for String {
     fn to_sgf(&self) -> String {
-        self.0.to_owned()
-    }
-}
-
-impl std::str::FromStr for SgfString {
-    type Err = SgfPropError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(Self(s.to_owned()))
-    }
-}
-
-impl std::convert::From<&str> for SgfString {
-    fn from(s: &str) -> Self {
-        SgfString(s.to_owned())
+        self.to_owned()
     }
 }

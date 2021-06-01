@@ -5,14 +5,18 @@
 //!
 //! For writing SGFs check out [`serialize()`].
 
-mod games;
+#[macro_use]
+mod prop_macro;
+
 pub mod go;
+pub mod unknown_game;
+
+mod games;
 mod lexer;
 mod parser;
 mod props;
 mod serialize;
 mod sgf_node;
-pub mod unknown_game;
 
 pub use games::{GameTree, GameType};
 pub use lexer::LexerError;
