@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use crate::props::parse::{parse_elist, parse_single_value};
 use crate::props::{FromCompressedList, PropertyType, SgfPropError, ToSgf};
-use crate::{SgfNode, SgfParseError, SgfProp};
+use crate::{InvalidNodeError, SgfNode, SgfParseError, SgfProp};
 
 /// Returns the [`SgfNode`] values for Go games parsed from the provided text.
 ///
@@ -109,7 +109,7 @@ impl SgfProp for Prop {
 
     fn identifier(&self) -> String {
         match self.general_identifier() {
-            Some(identifier) => identifier.to_string(),
+            Some(identifier) => identifier,
             None => match self {
                 Self::KM(_) => "KM".to_string(),
                 Self::HA(_) => "HA".to_string(),
@@ -129,6 +129,10 @@ impl SgfProp for Prop {
                 _ => None,
             },
         }
+    }
+
+    fn validate_properties(properties: &[Self], is_root: bool) -> Result<(), InvalidNodeError> {
+        Self::general_validate_properties(properties, is_root)
     }
 }
 

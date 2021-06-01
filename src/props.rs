@@ -1,8 +1,10 @@
-use std::collections::HashSet;
-
 pub mod parse;
 mod serialize;
 mod values;
+
+use std::collections::HashSet;
+
+use crate::InvalidNodeError;
 
 pub use serialize::ToSgf;
 pub use values::{Color, Double, SimpleText, Text};
@@ -55,6 +57,12 @@ pub trait SgfProp: std::fmt::Debug + std::fmt::Display + Sized + Clone {
     /// assert_eq!(prop.property_type(), None);
     /// ```
     fn property_type(&self) -> Option<PropertyType>;
+
+    /// Validates a set of properties.
+    ///
+    /// # Errors
+    /// Returns an error if the collection of properties isn't valid.
+    fn validate_properties(properties: &[Self], is_root: bool) -> Result<(), InvalidNodeError>;
 }
 
 /// An SGF [property type](https://www.red-bean.com/sgf/sgf4.html#2.2.1).

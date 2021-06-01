@@ -398,6 +398,113 @@ macro_rules! sgf_prop {
                     _ => None,
                 }
             }
+
+            pub fn general_validate_properties(properties: &[Self], is_root: bool) -> Result<(), crate::InvalidNodeError> {
+                use crate::InvalidNodeError;
+                let mut identifiers = HashSet::new();
+                let mut markup_points = HashSet::new();
+                let mut setup_node = false;
+                let mut move_node = false;
+                let mut move_seen = false;
+                let mut exclusive_node_annotations = 0;
+                let mut move_annotation_count = 0;
+                for prop in properties {
+                    match prop {
+                        Prop::B(_) => {
+                            move_seen = true;
+                            if identifiers.contains("W") {
+                                return Err(InvalidNodeError::MultipleMoves(format!(
+                                    "{:?}",
+                                    properties.to_vec()
+                                )));
+                            }
+                        }
+                        Prop::W(_) => {
+                            move_seen = true;
+                            if identifiers.contains("B") {
+                                return Err(InvalidNodeError::MultipleMoves(format!(
+                                    "{:?}",
+                                    properties.to_vec()
+                                )));
+                            }
+                        }
+                        Prop::CR(ps) | Prop::MA(ps) | Prop::SL(ps) | Prop::SQ(ps) | Prop::TR(ps) => {
+                            for p in ps.iter() {
+                                if markup_points.contains(&p) {
+                                    return Err(InvalidNodeError::RepeatedMarkup(format!(
+                                        "{:?}",
+                                        properties.to_vec()
+                                    )));
+                                }
+                                markup_points.insert(p);
+                            }
+                        }
+                        Prop::DM(_) | Prop::UC(_) | Prop::GW(_) | Prop::GB(_) => {
+                            exclusive_node_annotations += 1
+                        }
+                        Prop::BM(_) | Prop::DO | Prop::IT | Prop::TE(_) => move_annotation_count += 1,
+                        Prop::Invalid(identifier, values) => {
+                            return Err(InvalidNodeError::InvalidProperty(format!(
+                                "{}, {:?}",
+                                identifier, values
+                            )))
+                        }
+                        _ => {}
+                    }
+                    match prop.property_type() {
+                        Some(PropertyType::Move) => move_node = true,
+                        Some(PropertyType::Setup) => setup_node = true,
+                        Some(PropertyType::Root) => {
+                            if !is_root {
+                                return Err(InvalidNodeError::UnexpectedRootProperties(format!(
+                                            "{:?}",
+                                            properties
+                                )));
+                            }
+                        }
+                        _ => {}
+                    }
+                    let ident = prop.identifier();
+                    if identifiers.contains(&ident) {
+                        return Err(InvalidNodeError::RepeatedIdentifier(format!(
+                                    "{:?}",
+                                    properties.to_vec()
+                        )));
+                    }
+                    identifiers.insert(prop.identifier());
+                }
+                if setup_node && move_node {
+                    return Err(InvalidNodeError::SetupAndMove(format!(
+                                "{:?}",
+                                properties.to_vec()
+                    )));
+                }
+                if identifiers.contains("KO") && !(identifiers.contains("B") || identifiers.contains("W")) {
+                    return Err(InvalidNodeError::KoWithoutMove(format!(
+                                "{:?}",
+                                properties.to_vec()
+                    )));
+                }
+                if move_annotation_count > 1 {
+                    return Err(InvalidNodeError::MultipleMoveAnnotations(format!(
+                                "{:?}",
+                                properties.to_vec()
+                    )));
+                }
+                if move_annotation_count == 1 && !move_seen {
+                    return Err(InvalidNodeError::UnexpectedMoveAnnotation(format!(
+                                "{:?}",
+                                properties.to_vec()
+                    )));
+                }
+                if exclusive_node_annotations > 1 {
+                    return Err(InvalidNodeError::MultipleExclusiveAnnotations(format!(
+                                "{:?}",
+                                properties.to_vec()
+                    )));
+                }
+                Ok(())
+            }
         }
 
 

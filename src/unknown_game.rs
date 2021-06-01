@@ -1,5 +1,5 @@
 use crate::props::{FromCompressedList, PropertyType, SgfPropError, ToSgf};
-use crate::SgfProp;
+use crate::{InvalidNodeError, SgfProp};
 use std::collections::HashSet;
 
 sgf_prop! {
@@ -18,13 +18,17 @@ impl SgfProp for Prop {
 
     fn identifier(&self) -> String {
         match self.general_identifier() {
-            Some(identifier) => identifier.to_string(),
+            Some(identifier) => identifier,
             None => panic!("Unimplemented identifier for {:?}", self),
         }
     }
 
     fn property_type(&self) -> Option<PropertyType> {
         self.general_property_type()
+    }
+
+    fn validate_properties(properties: &[Self], is_root: bool) -> Result<(), InvalidNodeError> {
+        Self::general_validate_properties(properties, is_root)
     }
 }
 
