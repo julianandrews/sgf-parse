@@ -1,20 +1,26 @@
 //! Data structures and utilities for parsing [SGF FF\[4\] files](https://www.red-bean.com/sgf/).
 //!
-//! For reading SGFs your starting point will be the [parse](fn.parse.html) function which will
-//! return a `Vector` of [SgfNode](struct.SgfNode.html) structs.
+//! For reading SGFs your starting point will likely be [`go::parse()`]. For parsing non-go games
+//! check out the [`parse()`] function.
 //!
-//! For writing SGFs you'll want to build a collection of [SgfNode](struct.SgfNode.html) structs, and then use
-//! [serialize](fn.serialize.html). See [SgfNodeBuilder](struct.SgfNodeBuilder.html) and
-//! [SgfNode::into_builder](struct.SgfNode.html#method.into_builder).
+//! For writing SGFs check out [`serialize()`].
 
-pub mod errors;
+#[macro_use]
+mod prop_macro;
+
+pub mod go;
+pub mod unknown_game;
+
+mod games;
 mod lexer;
 mod parser;
 mod props;
 mod serialize;
 mod sgf_node;
 
-pub use parser::parse;
-pub use props::{Color, Double, Move, Point, PropertyType, SgfProp, SimpleText, Text};
+pub use games::{GameTree, GameType};
+pub use lexer::LexerError;
+pub use parser::{parse, SgfParseError};
+pub use props::{Color, Double, PropertyType, SgfProp, SimpleText, Text};
 pub use serialize::serialize;
-pub use sgf_node::{SgfNode, SgfNodeBuilder};
+pub use sgf_node::{InvalidNodeError, SgfNode};
