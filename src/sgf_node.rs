@@ -3,6 +3,9 @@ use crate::props::{PropertyType, SgfProp};
 /// A node in an SGF Game Tree.
 ///
 /// Any succesfully constructed node will be serializable, but may or may not be valid.
+/// All game-specific information is encoded in the `Prop` type. Use
+/// [`go::Prop`](`crate::go::Prop`) for go games, and
+/// [`unknown_game::Prop`](`crate::unknown_game::Prop`) for all other games.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SgfNode<Prop: SgfProp> {
     pub properties: Vec<Prop>,
