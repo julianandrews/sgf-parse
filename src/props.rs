@@ -9,7 +9,10 @@ use crate::InvalidNodeError;
 pub use serialize::ToSgf;
 pub use values::{Color, Double, SimpleText, Text};
 
-pub trait SgfProp: std::fmt::Debug + std::fmt::Display + Sized + Clone {
+/// A type that can be used for properties in an [`SgfNode`].
+///
+/// This trait is sealed and cannot be implemented for types outside of `sgf_parse`.
+pub trait SgfProp: std::fmt::Debug + std::fmt::Display + Sized + Clone + private::Sealed {
     type Move: std::fmt::Debug + Clone + PartialEq + ToSgf;
     type Stone: std::fmt::Debug + Clone + PartialEq + Eq + std::hash::Hash + ToSgf;
     type Point: std::fmt::Debug + Clone + PartialEq + Eq + std::hash::Hash + ToSgf;
@@ -93,3 +96,15 @@ impl std::fmt::Display for SgfPropError {
 }
 
 impl std::error::Error for SgfPropError {}
+
+// Prevent users from implementing the SgfProp trait.
+// Because `parse` has to return an enum, with the current design, implementing
+// a new game outside the crate is a mess.
+//
+// If you'd like to implement this trait for a new game, PR's are very welcome!
+mod private {
+    pub trait Sealed {}
+    impl Sealed for crate::go::Prop {}
+    impl Sealed for crate::unknown_game::Prop {}
+    impl<'a, T> Sealed for &'a T where T: ?Sized + Sealed {}
+}
