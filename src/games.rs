@@ -27,7 +27,7 @@ pub enum GameTree {
 }
 
 impl GameTree {
-    /// Consumes a Go game `GameTree` and returns the contained [SgfNode](struct.SgfNode.html).
+    /// Consumes a Go game `GameTree` and returns the contained [`SgfNode`].
     ///
     /// This is a convenience method for go games.
     ///

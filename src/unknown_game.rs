@@ -1,3 +1,12 @@
+//! Generic types for SGFs without a known game.
+//!
+//! This module contains a generic [`SgfProp`] implementation appropriate
+//! for use with any SGF file. This implementation recognizes all [general
+//! properties](https://www.red-bean.com/sgf/properties.html), but any game
+//! specific property will parse as [`Prop::Unknown`].
+//!
+//! SGF Move, Point, and Stone values are all simply stored as strings.
+
 use crate::props::{FromCompressedList, PropertyType, SgfPropError, ToSgf};
 use crate::{InvalidNodeError, SgfProp};
 use std::collections::HashSet;

@@ -9,7 +9,7 @@ use crate::InvalidNodeError;
 pub use serialize::ToSgf;
 pub use values::{Color, Double, SimpleText, Text};
 
-/// A type that can be used for properties in an [`SgfNode`].
+/// A type that can be used for properties in an [`SgfNode`](`crate::SgfNode`).
 ///
 /// This trait is sealed and cannot be implemented for types outside of `sgf_parse`.
 pub trait SgfProp: std::fmt::Debug + std::fmt::Display + Sized + Clone + private::Sealed {

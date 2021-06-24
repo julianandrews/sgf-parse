@@ -1,3 +1,14 @@
+//! Types specific to the game of Go.
+//!
+//! This module contains a go-specific [`SgfProp`] implementation which
+//! includes go specific properties (HA, KM, TB, TW). Point and Stone values
+//! map to [`Point`], and Move values map to [`Move`]. Properties with
+//! invalid moves or points map to [`Prop::Invalid`] (as do any invalid
+//! [general properties](https://www.red-bean.com/sgf/properties.html)).
+//!
+//! This module also includes a convenience [`parse`] function which fails
+//! on non-go games and returns the [`SgfNode`] values directly instead of
+//! returning [`GameTree`](crate::GameTree) values.
 use std::collections::HashSet;
 
 use crate::props::parse::{parse_elist, parse_single_value};
@@ -6,7 +17,7 @@ use crate::{InvalidNodeError, SgfNode, SgfParseError, SgfProp};
 
 /// Returns the [`SgfNode`] values for Go games parsed from the provided text.
 ///
-/// This is a convenience wrapper around [`parse`] for dealing with Go only collections.
+/// This is a convenience wrapper around [`crate::parse`] for dealing with Go only collections.
 ///
 /// # Errors
 /// If the text can't be parsed as an SGF FF\[4\] collection, then an error is returned.

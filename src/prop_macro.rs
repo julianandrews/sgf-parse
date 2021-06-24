@@ -5,8 +5,8 @@ macro_rules! sgf_prop {
         /// All [general properties](https://www.red-bean.com/sgf/properties.html) from the SGF
         /// specification and all game specific properties will return the approprite enum
         /// instance with parsed data. Unrecognized properties will return
-        /// `Unknown`. Recognized general or game specific properties with invalid values will
-        /// return `Invalid`.
+        /// [`Prop::Unknown`](`Self::Unknown`). Recognized general or game specific properties with invalid values will
+        /// return [`Prop::Invalid`](`Self::Invalid`).
         ///
         /// See [property value types](https://www.red-bean.com/sgf/sgf4.html#types) for a list of types
         /// recognized by SGF. For parsing purposes the following mappings are used:
@@ -16,10 +16,10 @@ macro_rules! sgf_prop {
         /// * 'Color' => [`Color`](`crate::props::Color`)
         /// * 'SimpleText' => [`SimpleText`](`crate::props::SimpleText`)
         /// * 'Text' => [`Text`](`crate::props::Text`)
-        /// * 'Point' => Game specific Point value (e.g.: [`crate::go::Point`])
-        /// * 'Stone' => Game specific Stone value (e.g.: [`crate::go::Point`])
-        /// * 'Move' => Game specific Move value (e.g.: [`crate::go::Move`])
-        /// * 'List' => [`std::collections::HashSet`]
+        /// * 'Point' => [`Point`](`Self::Point`)
+        /// * 'Stone' => [`Stone`](`Self::Stone`)
+        /// * 'Move' => [`Move`](`Self::Move`)
+        /// * 'List' => [`HashSet`](`std::collections::HashSet`)
         /// * 'Compose' => [`tuple`] of the composed values
         #[derive(Clone, Debug, PartialEq)]
         pub enum $name {
@@ -399,7 +399,7 @@ macro_rules! sgf_prop {
                 }
             }
 
-            pub fn general_validate_properties(properties: &[Self], is_root: bool) -> Result<(), crate::InvalidNodeError> {
+            fn general_validate_properties(properties: &[Self], is_root: bool) -> Result<(), crate::InvalidNodeError> {
                 use crate::InvalidNodeError;
                 let mut identifiers = HashSet::new();
                 let mut markup_points = HashSet::new();
