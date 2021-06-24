@@ -183,7 +183,7 @@ impl<Prop: SgfProp> std::fmt::Display for SgfNode<Prop> {
 }
 
 /// Err type for [`SgfNode::validate`].
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InvalidNodeError {
     UnexpectedRootProperties(String),
     UnexpectedGameInfo(String),

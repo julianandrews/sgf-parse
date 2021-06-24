@@ -36,7 +36,7 @@ pub fn parse(text: &str) -> Result<Vec<GameTree>, SgfParseError> {
 }
 
 /// Error type for failures parsing sgf from text.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SgfParseError {
     LexerError(LexerError),
     UnexpectedGameTreeStart,

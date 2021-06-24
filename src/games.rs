@@ -6,7 +6,7 @@ use crate::{go, unknown_game, SgfNode, SgfParseError};
 ///
 /// Any [`GameTree`] retured by [`parse`](`crate::parse`) will have a game type which corresponds to
 /// the SGF `GM` property of the root node.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GameType {
     Go,
     Unknown,

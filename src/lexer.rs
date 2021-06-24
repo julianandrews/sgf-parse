@@ -13,7 +13,7 @@ pub enum Token {
 }
 
 /// Error type for failures to tokenize text.
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LexerError {
     UnexpectedPropertyIdentifier,
     MissingPropertyIdentifier,
