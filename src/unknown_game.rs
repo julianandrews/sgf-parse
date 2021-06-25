@@ -16,10 +16,19 @@ sgf_prop! {
     { }
 }
 
+/// An SGF [Point](https://www.red-bean.com/sgf/go.html#types) value for an unknown game.
+pub type Point = String;
+
+/// An SGF [Stone](https://www.red-bean.com/sgf/go.html#types) value for an unknown game.
+pub type Stone = String;
+
+/// An SGF [Move](https://www.red-bean.com/sgf/go.html#types) value for an unknown game.
+pub type Move = String;
+
 impl SgfProp for Prop {
-    type Move = String;
-    type Point = String;
-    type Stone = String;
+    type Point = Point;
+    type Stone = Stone;
+    type Move = Move;
 
     fn new(identifier: String, values: Vec<String>) -> Self {
         Self::parse_general_prop(identifier, values)

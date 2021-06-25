@@ -57,6 +57,9 @@ pub struct Point {
     pub y: u8,
 }
 
+/// An SGF [Stone](https://www.red-bean.com/sgf/go.html#types) value for the Game of Go.
+pub type Stone = Point;
+
 /// An SGF [Move](https://www.red-bean.com/sgf/go.html#types) value for the Game of Go.
 ///
 /// # Examples
@@ -88,9 +91,9 @@ sgf_prop! {
 }
 
 impl SgfProp for Prop {
-    type Move = Move;
     type Point = Point;
-    type Stone = Point;
+    type Stone = Stone;
+    type Move = Move;
 
     fn new(identifier: String, values: Vec<String>) -> Self {
         match Prop::parse_general_prop(identifier, values) {
