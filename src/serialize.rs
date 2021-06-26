@@ -2,6 +2,9 @@ use crate::GameTree;
 
 /// Returns the serialized SGF text from a collection of [`GameTree`] objects.
 ///
+/// For serializing a single node, check out the
+/// [`SgfNode::serialize`](`crate::SgfNode::serialize`) method.
+///
 /// # Examples
 /// ```
 /// use sgf_parse::{serialize, SgfNode, SgfProp};
@@ -24,12 +27,11 @@ use crate::GameTree;
 /// assert_eq!(serialized, "(;SZ[19:19];B[dd])(;C[A comment])");
 /// ```
 pub fn serialize<'a>(gametrees: impl IntoIterator<Item = &'a GameTree>) -> String {
-    let gametrees_text = gametrees
+    gametrees
         .into_iter()
         .map(|gametree| gametree.to_string())
         .collect::<Vec<String>>()
-        .join(")(");
-    format!("({})", gametrees_text)
+        .join("")
 }
 
 #[cfg(test)]

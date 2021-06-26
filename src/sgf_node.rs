@@ -113,6 +113,20 @@ impl<Prop: SgfProp> SgfNode<Prop> {
         self.properties.iter()
     }
 
+    /// Returns the serialized SGF for this SgfNode as a complete GameTree.
+    ///
+    /// # Examples
+    /// ```
+    /// use sgf_parse::go::parse;
+    ///
+    /// let sgf = "(;SZ[13:13];B[de])";
+    /// let node = parse(sgf).unwrap().into_iter().next().unwrap();
+    /// assert_eq!(node.serialize(), sgf);
+    /// ```
+    pub fn serialize(&self) -> String {
+        format!("({})", self)
+    }
+
     /// Returns `Ok` if the node's properties are valid according to the SGF FF\[4\] spec.
     ///
     /// # Errors

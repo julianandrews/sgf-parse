@@ -3,7 +3,8 @@
 //! For reading SGFs your starting point will likely be [`go::parse`]. For parsing non-go games
 //! check out the [`parse`](`parse()`) function.
 //!
-//! For writing SGFs check out [`serialize`](`serialize()`).
+//! For writing SGFs check out [`SgfNode::serialize`] for writing single game trees or
+//! [`serialize`](`serialize()`) for writing whole collections.
 
 #[macro_use]
 mod prop_macro;

@@ -67,10 +67,11 @@ impl GameTree {
 
 impl std::fmt::Display for GameTree {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::GoGame(sgf_node) => std::fmt::Display::fmt(sgf_node, f),
-            Self::Unknown(sgf_node) => std::fmt::Display::fmt(sgf_node, f),
-        }
+        let node_text = match self {
+            Self::GoGame(sgf_node) => sgf_node.serialize(),
+            Self::Unknown(sgf_node) => sgf_node.serialize(),
+        };
+        std::fmt::Display::fmt(&node_text, f)
     }
 }
 
