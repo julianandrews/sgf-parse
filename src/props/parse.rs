@@ -2,8 +2,14 @@ use std::collections::HashSet;
 use std::hash::Hash;
 use std::str::FromStr;
 
-use super::{FromCompressedList, SgfPropError};
-// use super::{SimpleText, Text};
+use super::SgfPropError;
+
+pub trait FromCompressedList: Sized {
+    fn from_compressed_list(
+        upper_left: &Self,
+        lower_right: &Self,
+    ) -> Result<HashSet<Self>, SgfPropError>;
+}
 
 pub fn parse_single_value<T: FromStr>(values: &[String]) -> Result<T, SgfPropError> {
     if values.len() != 1 {

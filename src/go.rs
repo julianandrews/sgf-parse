@@ -11,8 +11,8 @@
 //! returning [`GameTree`](crate::GameTree) values.
 use std::collections::HashSet;
 
-use crate::props::parse::{parse_elist, parse_single_value};
-use crate::props::{FromCompressedList, PropertyType, SgfPropError, ToSgf};
+use crate::props::parse::{parse_elist, parse_single_value, FromCompressedList};
+use crate::props::{PropertyType, SgfPropError, ToSgf};
 use crate::{InvalidNodeError, SgfNode, SgfParseError, SgfProp};
 
 /// Returns the [`SgfNode`] values for Go games parsed from the provided text.

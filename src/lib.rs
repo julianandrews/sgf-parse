@@ -12,14 +12,14 @@ mod prop_macro;
 pub mod go;
 pub mod unknown_game;
 
-mod games;
+mod game_tree;
 mod lexer;
 mod parser;
 mod props;
 mod serialize;
 mod sgf_node;
 
-pub use games::{GameTree, GameType};
+pub use game_tree::{GameTree, GameType};
 pub use lexer::LexerError;
 pub use parser::{parse, SgfParseError};
 pub use props::{Color, Double, PropertyType, SgfProp, SimpleText, Text};

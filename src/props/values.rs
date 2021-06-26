@@ -49,6 +49,16 @@ pub struct Text {
     pub text: String,
 }
 
+/// An SGF [property type](https://www.red-bean.com/sgf/sgf4.html#2.2.1).
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum PropertyType {
+    Move,
+    Setup,
+    Root,
+    GameInfo,
+    Inherit,
+}
+
 impl FromStr for Double {
     type Err = SgfPropError;
 
