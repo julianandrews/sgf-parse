@@ -1,6 +1,6 @@
 [package]
 name = "sgf-parse"
-version = "3.0.2"
+version = "3.1.0"
 edition = "2018"
 authors = ["Julian Andrews <jandrews271@gmail.com>"]
 license = "MIT"

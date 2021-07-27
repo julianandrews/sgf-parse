@@ -21,7 +21,7 @@ mod sgf_node;
 
 pub use game_tree::{GameTree, GameType};
 pub use lexer::LexerError;
-pub use parser::{parse, SgfParseError};
+pub use parser::{parse, parse_with_options, ParseOptions, SgfParseError};
 pub use props::{Color, Double, PropertyType, SgfProp, SimpleText, Text};
 pub use serialize::serialize;
 pub use sgf_node::{InvalidNodeError, SgfNode};

@@ -5,7 +5,7 @@ use crate::lexer::{tokenize, LexerError, Token};
 use crate::unknown_game;
 use crate::{GameTree, GameType, SgfNode, SgfProp};
 
-/// Returns the [`GameTree`] values parsed from the provided text.
+/// Returns the [`GameTree`] values parsed from the provided text using default parsing options.
 ///
 /// # Errors
 /// If the text can't be parsed as an SGF FF\[4\] collection, then an error is returned.
@@ -20,6 +20,27 @@ use crate::{GameTree, GameType, SgfNode, SgfProp};
 /// assert!(gametrees.iter().all(|gametree| gametree.gametype() == GameType::Go));
 /// ```
 pub fn parse(text: &str) -> Result<Vec<GameTree>, SgfParseError> {
+    parse_with_options(text, &ParseOptions::default())
+}
+
+/// Returns the [`GameTree`] values parsed from the provided text.
+///
+/// # Errors
+/// If the text can't be parsed as an SGF FF\[4\] collection, then an error is returned.
+///
+/// # Examples
+/// ```
+/// use sgf_parse::{parse_with_options, ParseOptions, GameType};
+///
+/// let sgf = "(;SZ[9]C[Some comment];B[de];W[fe])(;B[de];W[ff])";
+/// let gametrees = parse_with_options(sgf, &ParseOptions::default()).unwrap();
+/// assert!(gametrees.len() == 2);
+/// assert!(gametrees.iter().all(|gametree| gametree.gametype() == GameType::Go));
+/// ```
+pub fn parse_with_options(
+    text: &str,
+    options: &ParseOptions,
+) -> Result<Vec<GameTree>, SgfParseError> {
     let tokens = tokenize(text)
         .map(|result| match result {
             Err(e) => Err(SgfParseError::LexerError(e)),
@@ -29,10 +50,26 @@ pub fn parse(text: &str) -> Result<Vec<GameTree>, SgfParseError> {
     split_by_gametree(&tokens)?
         .into_iter()
         .map(|tokens| match find_gametype(tokens)? {
-            GameType::Go => parse_gametree::<go::Prop>(tokens),
-            GameType::Unknown => parse_gametree::<unknown_game::Prop>(tokens),
+            GameType::Go => parse_gametree::<go::Prop>(tokens, options),
+            GameType::Unknown => parse_gametree::<unknown_game::Prop>(tokens, options),
         })
         .collect::<Result<_, _>>()
+}
+
+/// Options for parsing SGF files.
+pub struct ParseOptions {
+    /// Whether to allow automatic conversion of FF\[3\] and older files.
+    ///
+    /// Currently conversion is limited to handling mixed case property identifiers.
+    pub allow_conversion: bool,
+}
+
+impl Default for ParseOptions {
+    fn default() -> Self {
+        ParseOptions {
+            allow_conversion: true,
+        }
+    }
 }
 
 /// Error type for failures parsing sgf from text.
@@ -44,6 +81,7 @@ pub enum SgfParseError {
     UnexpectedProperty,
     UnexpectedEndOfData,
     UnexpectedGameType,
+    InvalidFF4Property,
 }
 
 impl From<LexerError> for SgfParseError {
@@ -61,6 +99,9 @@ impl std::fmt::Display for SgfParseError {
             SgfParseError::UnexpectedProperty => write!(f, "Unexpected property"),
             SgfParseError::UnexpectedEndOfData => write!(f, "Unexpected end of data"),
             SgfParseError::UnexpectedGameType => write!(f, "Unexpected game type"),
+            SgfParseError::InvalidFF4Property => {
+                write!(f, "Invalid FF[4] property without `allow_conversion`")
+            }
         }
     }
 }
@@ -99,7 +140,10 @@ fn split_by_gametree(tokens: &[Token]) -> Result<Vec<&[Token]>, SgfParseError> {
 }
 
 // Parse a single gametree of a known type.
-fn parse_gametree<Prop: SgfProp>(tokens: &[Token]) -> Result<GameTree, SgfParseError>
+fn parse_gametree<Prop: SgfProp>(
+    tokens: &[Token],
+    options: &ParseOptions,
+) -> Result<GameTree, SgfParseError>
 where
     SgfNode<Prop>: std::convert::Into<GameTree>,
 {
@@ -142,13 +186,28 @@ where
                 }
                 for token in prop_tokens {
                     match token {
-                        // TODO: Consider refactoring to consume tokens and avoid clones.
-                        Token::Property((identifier, values)) => new_node
-                            .properties
-                            .push(Prop::new(identifier.clone(), values.clone())),
+                        // TODO: Consider refactoring to consume tokens and clone of values.
+                        Token::Property((identifier, values)) => {
+                            let identifier = {
+                                if identifier.chars().all(|c| c.is_ascii_uppercase()) {
+                                    identifier.clone()
+                                } else if options.allow_conversion {
+                                    identifier
+                                        .chars()
+                                        .filter(|c| c.is_ascii_uppercase())
+                                        .collect()
+                                } else {
+                                    return Err(SgfParseError::InvalidFF4Property);
+                                }
+                            };
+                            new_node
+                                .properties
+                                .push(Prop::new(identifier, values.clone()))
+                        }
                         _ => unreachable!(),
                     }
                 }
+                println!("{:?}", new_node);
                 let node_list = unsafe { current_node_list_ptr.as_mut() };
                 node_list.push(new_node);
                 current_node_list_ptr =
@@ -323,5 +382,17 @@ mod test {
         let input = "(;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;)";
         let result = parse(&input);
         assert!(result.is_ok());
+    }
+
+    #[test]
+    fn cleans_up_ff3_property() {
+        let input = "(;GM[1]CoPyright[test])";
+        let expected = vec![go::Prop::GM(1), go::Prop::CP("test".into())];
+
+        let sgf_nodes = go::parse(input).unwrap();
+
+        assert_eq!(sgf_nodes.len(), 1);
+        let properties = sgf_nodes[0].properties().cloned().collect::<Vec<_>>();
+        assert_eq!(properties, expected);
     }
 }

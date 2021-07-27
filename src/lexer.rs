@@ -70,7 +70,7 @@ impl<'a> Lexer<'a> {
         loop {
             match self.peek_char() {
                 Some('[') => break,
-                Some(c) if c.is_ascii_uppercase() => {
+                Some(c) if c.is_ascii() => {
                     self.cursor += 1;
                     prop_ident.push(c);
                 }
@@ -175,6 +175,23 @@ mod test {
             (StartNode, 42..43),
             (Property(("W".to_string(), vec!["ff".to_string()])), 43..48),
             (EndGameTree, 48..49),
+        ];
+        let tokens: Vec<_> = tokenize(sgf).collect::<Result<_, _>>().unwrap();
+
+        assert_eq!(tokens, expected);
+    }
+
+    #[test]
+    fn handles_old_style_properties() {
+        let sgf = "(;CoPyright[text])";
+        let expected = vec![
+            (StartGameTree, 0..1),
+            (StartNode, 1..2),
+            (
+                Property(("CoPyright".to_string(), vec!["text".to_string()])),
+                2..17,
+            ),
+            (EndGameTree, 17..18),
         ];
         let tokens: Vec<_> = tokenize(sgf).collect::<Result<_, _>>().unwrap();
 
