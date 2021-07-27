@@ -207,7 +207,6 @@ where
                         _ => unreachable!(),
                     }
                 }
-                println!("{:?}", new_node);
                 let node_list = unsafe { current_node_list_ptr.as_mut() };
                 node_list.push(new_node);
                 current_node_list_ptr =
