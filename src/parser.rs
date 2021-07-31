@@ -7,6 +7,9 @@ use crate::{GameTree, GameType, SgfNode, SgfProp};
 
 /// Returns the [`GameTree`] values parsed from the provided text using default parsing options.
 ///
+/// This function will attempt to convert non-FF\[4\] files to FF\[4\] if possible. Check out
+/// [`parse_with_options`] if you want to change the default behavior.
+///
 /// # Errors
 /// If the text can't be parsed as an SGF FF\[4\] collection, then an error is returned.
 ///
@@ -49,9 +52,11 @@ pub fn parse_with_options(
         .collect::<Result<Vec<_>, _>>()?;
     split_by_gametree(&tokens)?
         .into_iter()
-        .map(|tokens| match find_gametype(tokens)? {
-            GameType::Go => parse_gametree::<go::Prop>(tokens, options),
-            GameType::Unknown => parse_gametree::<unknown_game::Prop>(tokens, options),
+        .map(|tokens| match find_gametype_and_version(tokens)? {
+            (GameType::Go, version) => parse_gametree::<go::Prop>(tokens, version, options),
+            (GameType::Unknown, version) => {
+                parse_gametree::<unknown_game::Prop>(tokens, version, options)
+            }
         })
         .collect::<Result<_, _>>()
 }
@@ -142,6 +147,7 @@ fn split_by_gametree(tokens: &[Token]) -> Result<Vec<&[Token]>, SgfParseError> {
 // Parse a single gametree of a known type.
 fn parse_gametree<Prop: SgfProp>(
     tokens: &[Token],
+    version: Option<i64>,
     options: &ParseOptions,
 ) -> Result<GameTree, SgfParseError>
 where
@@ -191,7 +197,7 @@ where
                             let identifier = {
                                 if identifier.chars().all(|c| c.is_ascii_uppercase()) {
                                     identifier.clone()
-                                } else if options.allow_conversion {
+                                } else if options.allow_conversion && version != Some(4) {
                                     identifier
                                         .chars()
                                         .filter(|c| c.is_ascii_uppercase())
@@ -224,35 +230,63 @@ where
     Ok(root_node.into())
 }
 
+fn find_gametype_and_version(tokens: &[Token]) -> Result<(GameType, Option<i64>), SgfParseError> {
+    Ok((find_gametype(tokens)?, find_ff_version(tokens)?))
+}
+
 // Figure out which game to parse from a slice of tokens.
 //
 // This function is necessary because we need to know the game before we can do the parsing.
 fn find_gametype(tokens: &[Token]) -> Result<GameType, SgfParseError> {
-    let gm_props: Vec<_> = tokens
-        .iter()
-        .filter_map(|token| match token {
-            Token::Property((prop_ident, prop_values)) => {
-                if prop_ident == "GM" {
-                    Some(prop_values)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        })
-        .collect();
-    match gm_props.len() {
-        0 => Ok(GameType::Go),
-        1 => {
-            let props = gm_props[0];
-            if props.len() != 1 {
+    match find_gametree_root_prop_values("GM", tokens)? {
+        None => Ok(GameType::Go),
+        Some(values) => {
+            if values.len() != 1 {
                 return Ok(GameType::Unknown);
             }
-            match props[0].as_str() {
+            match values[0].as_str() {
                 "1" => Ok(GameType::Go),
                 _ => Ok(GameType::Unknown),
             }
         }
+    }
+}
+
+// Find the FF version from the tokens if explicitly provided.
+fn find_ff_version(tokens: &[Token]) -> Result<Option<i64>, SgfParseError> {
+    Ok(
+        find_gametree_root_prop_values("FF", tokens)?.and_then(|values| {
+            if values.len() != 1 {
+                return None;
+            }
+            values[0].parse::<i64>().ok()
+        }),
+    )
+}
+
+// Find the property values for a given identifier in the root node from the gametree's tokens.
+//
+// We use this to determine key root properties (like GM and FF) before parsing.
+// Returns an error if there's more than one match.
+fn find_gametree_root_prop_values<'a>(
+    prop_ident: &'a str,
+    tokens: &'a [Token],
+) -> Result<Option<&'a Vec<String>>, SgfParseError> {
+    // Find the matching property values in the first node.
+    // Skip the initial StartGameTree, StartNode tokens; we'll handle any errors later.
+    let matching_tokens: Vec<&Vec<String>> = tokens
+        .iter()
+        .skip(2)
+        .take_while(|&token| matches!(token, Token::Property(_)))
+        .filter_map(move |token| match token {
+            Token::Property((ident, values)) if ident == prop_ident => Some(values),
+            _ => None,
+        })
+        .collect();
+
+    match matching_tokens.len() {
+        0 => Ok(None),
+        1 => Ok(Some(matching_tokens[0])),
         _ => Err(SgfParseError::UnexpectedProperty),
     }
 }
@@ -384,14 +418,35 @@ mod test {
     }
 
     #[test]
-    fn cleans_up_ff3_property() {
-        let input = "(;GM[1]CoPyright[test])";
-        let expected = vec![go::Prop::GM(1), go::Prop::CP("test".into())];
+    fn converts_up_ff3_property() {
+        let input = "(;GM[1]FF[3]CoPyright[test])";
+        let expected = vec![
+            go::Prop::GM(1),
+            go::Prop::FF(3),
+            go::Prop::CP("test".into()),
+        ];
 
         let sgf_nodes = go::parse(input).unwrap();
 
         assert_eq!(sgf_nodes.len(), 1);
         let properties = sgf_nodes[0].properties().cloned().collect::<Vec<_>>();
         assert_eq!(properties, expected);
+    }
+
+    #[test]
+    fn fails_on_ff3_property_with_explicit_ff4() {
+        let input = "(;GM[1]CoPyright[test]FF[4])";
+        let result = go::parse(input);
+        assert_eq!(result, Err(SgfParseError::InvalidFF4Property));
+    }
+
+    #[test]
+    fn doesnt_convert_if_not_allowed() {
+        let input = "(;GM[1]FF[3]CoPyright[test])";
+        let parse_options = ParseOptions {
+            allow_conversion: false,
+        };
+        let result = parse_with_options(input, &parse_options);
+        assert_eq!(result, Err(SgfParseError::InvalidFF4Property));
     }
 }
