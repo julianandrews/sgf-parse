@@ -63,9 +63,12 @@ pub fn parse_with_options(
 
 /// Options for parsing SGF files.
 pub struct ParseOptions {
-    /// Whether to allow automatic conversion of FF\[3\] and older files.
+    /// Whether to allow conversion of FF\[3\] mixed case identifiers to FF\[4\].
     ///
-    /// Currently conversion is limited to handling mixed case property identifiers.
+    /// This should allow parsing any older files which are valid, but not valid FF\[4\].
+    /// Note that this doesn't attempt to perform any further conversions as suggested
+    /// [here](https://www.red-bean.com/sgf/converting.html). Beyond accepting mixed
+    /// case identifiers, conversion is left to the application author.
     pub allow_conversion: bool,
 }
 
