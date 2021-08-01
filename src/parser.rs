@@ -52,11 +52,9 @@ pub fn parse_with_options(
         .collect::<Result<Vec<_>, _>>()?;
     split_by_gametree(&tokens)?
         .into_iter()
-        .map(|tokens| match find_gametype_and_version(tokens)? {
-            (GameType::Go, version) => parse_gametree::<go::Prop>(tokens, version, options),
-            (GameType::Unknown, version) => {
-                parse_gametree::<unknown_game::Prop>(tokens, version, options)
-            }
+        .map(|tokens| match find_gametype(tokens)? {
+            GameType::Go => parse_gametree::<go::Prop>(tokens, options),
+            GameType::Unknown => parse_gametree::<unknown_game::Prop>(tokens, options),
         })
         .collect::<Result<_, _>>()
 }
@@ -65,17 +63,15 @@ pub fn parse_with_options(
 pub struct ParseOptions {
     /// Whether to allow conversion of FF\[3\] mixed case identifiers to FF\[4\].
     ///
+    /// All lower case letters are dropped.
     /// This should allow parsing any older files which are valid, but not valid FF\[4\].
-    /// Note that this doesn't attempt to perform any further conversions as suggested
-    /// [here](https://www.red-bean.com/sgf/converting.html). Beyond accepting mixed
-    /// case identifiers, conversion is left to the application author.
-    pub allow_conversion: bool,
+    pub convert_mixed_case_identifiers: bool,
 }
 
 impl Default for ParseOptions {
     fn default() -> Self {
         ParseOptions {
-            allow_conversion: true,
+            convert_mixed_case_identifiers: true,
         }
     }
 }
@@ -108,7 +104,10 @@ impl std::fmt::Display for SgfParseError {
             SgfParseError::UnexpectedEndOfData => write!(f, "Unexpected end of data"),
             SgfParseError::UnexpectedGameType => write!(f, "Unexpected game type"),
             SgfParseError::InvalidFF4Property => {
-                write!(f, "Invalid FF[4] property without `allow_conversion`")
+                write!(
+                    f,
+                    "Invalid FF[4] property without `convert_mixed_case_identifiers`"
+                )
             }
         }
     }
@@ -150,7 +149,6 @@ fn split_by_gametree(tokens: &[Token]) -> Result<Vec<&[Token]>, SgfParseError> {
 // Parse a single gametree of a known type.
 fn parse_gametree<Prop: SgfProp>(
     tokens: &[Token],
-    version: Option<i64>,
     options: &ParseOptions,
 ) -> Result<GameTree, SgfParseError>
 where
@@ -200,7 +198,7 @@ where
                             let identifier = {
                                 if identifier.chars().all(|c| c.is_ascii_uppercase()) {
                                     identifier.clone()
-                                } else if options.allow_conversion && version != Some(4) {
+                                } else if options.convert_mixed_case_identifiers {
                                     identifier
                                         .chars()
                                         .filter(|c| c.is_ascii_uppercase())
@@ -233,10 +231,6 @@ where
     Ok(root_node.into())
 }
 
-fn find_gametype_and_version(tokens: &[Token]) -> Result<(GameType, Option<i64>), SgfParseError> {
-    Ok((find_gametype(tokens)?, find_ff_version(tokens)?))
-}
-
 // Figure out which game to parse from a slice of tokens.
 //
 // This function is necessary because we need to know the game before we can do the parsing.
@@ -253,18 +247,6 @@ fn find_gametype(tokens: &[Token]) -> Result<GameType, SgfParseError> {
             }
         }
     }
-}
-
-// Find the FF version from the tokens if explicitly provided.
-fn find_ff_version(tokens: &[Token]) -> Result<Option<i64>, SgfParseError> {
-    Ok(
-        find_gametree_root_prop_values("FF", tokens)?.and_then(|values| {
-            if values.len() != 1 {
-                return None;
-            }
-            values[0].parse::<i64>().ok()
-        }),
-    )
 }
 
 // Find the property values for a given identifier in the root node from the gametree's tokens.
@@ -437,17 +419,11 @@ mod test {
     }
 
     #[test]
-    fn fails_on_ff3_property_with_explicit_ff4() {
-        let input = "(;GM[1]CoPyright[test]FF[4])";
-        let result = go::parse(input);
-        assert_eq!(result, Err(SgfParseError::InvalidFF4Property));
-    }
-
-    #[test]
     fn doesnt_convert_if_not_allowed() {
         let input = "(;GM[1]FF[3]CoPyright[test])";
         let parse_options = ParseOptions {
-            allow_conversion: false,
+            convert_mixed_case_identifiers: false,
+            ..ParseOptions::default()
         };
         let result = parse_with_options(input, &parse_options);
         assert_eq!(result, Err(SgfParseError::InvalidFF4Property));
