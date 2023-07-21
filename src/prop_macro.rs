@@ -507,6 +507,8 @@ macro_rules! sgf_prop {
             }
         }
 
+        impl Eq for $name {}
+
         fn parse_size(values: &[String]) -> Result<(u8, u8), SgfPropError> {
             if values.len() != 1 {
                 return Err(SgfPropError {});
