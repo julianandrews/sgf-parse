@@ -62,13 +62,9 @@ impl<Prop: SgfProp> SgfNode<Prop> {
     /// };
     /// ```
     pub fn get_property(&self, identifier: &str) -> Option<&Prop> {
-        for prop in &self.properties {
-            if prop.identifier() == identifier {
-                return Some(prop);
-            }
-        }
-
-        None
+        self.properties
+            .iter()
+            .find(|&prop| prop.identifier() == identifier)
     }
 
     /// Returns an iterator over the children of this node.
@@ -84,7 +80,7 @@ impl<Prop: SgfProp> SgfNode<Prop> {
     ///     }
     /// }
     /// ```
-    pub fn children<'a>(&'a self) -> impl Iterator<Item = &Self> + 'a {
+    pub fn children(&self) -> impl Iterator<Item = &Self> {
         self.children.iter()
     }
 
@@ -109,7 +105,7 @@ impl<Prop: SgfProp> SgfNode<Prop> {
     ///     }
     /// }
     /// ```
-    pub fn properties<'a>(&'a self) -> impl Iterator<Item = &Prop> + 'a {
+    pub fn properties(&self) -> impl Iterator<Item = &Prop> {
         self.properties.iter()
     }
 

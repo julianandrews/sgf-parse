@@ -85,7 +85,7 @@ impl ToSgf for SimpleText {
 }
 
 fn escape_string(s: &str) -> String {
-    s.replace("\\", "\\\\")
-        .replace("]", "\\]")
-        .replace(":", "\\:")
+    s.replace('\\', "\\\\")
+        .replace(']', "\\]")
+        .replace(':', "\\:")
 }

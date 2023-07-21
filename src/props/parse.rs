@@ -33,7 +33,7 @@ pub fn parse_elist<T: FromStr + FromCompressedList + Eq + Hash>(
     for value in values {
         if value.contains(':') {
             let (upper_left, lower_right): (T, T) = parse_tuple(value)?;
-            elements.extend(T::from_compressed_list(&upper_left, &lower_right)?.into_iter());
+            elements.extend(T::from_compressed_list(&upper_left, &lower_right)?);
         } else {
             let item = value.parse().map_err(|_| SgfPropError {})?;
             elements.insert(item);

@@ -120,8 +120,7 @@ impl std::fmt::Display for SimpleText {
         let text = format_text(&self.text)
             .replace("\r\n", " ")
             .replace("\n\r", " ")
-            .replace("\n", " ")
-            .replace("\r", " ");
+            .replace(['\n', '\r'], " ");
         f.write_str(&text)
     }
 }
