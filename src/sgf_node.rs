@@ -240,7 +240,7 @@ impl<Prop: SgfProp> std::fmt::Display for SgfNode<Prop> {
             1 => self.children().next().unwrap().to_string(),
             _ => self
                 .children()
-                .map(|x| format!("({})", x.to_string()))
+                .map(|x| format!("({})", x))
                 .collect::<Vec<_>>()
                 .join(""),
         };
