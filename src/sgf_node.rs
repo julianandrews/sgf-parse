@@ -160,6 +160,44 @@ impl<Prop: SgfProp> SgfNode<Prop> {
         Ok(has_game_info)
     }
 
+    /// Returns an iterator over the nodes of the main variation.
+    ///
+    /// This is a convenience method for iterating through the first child of each node until the
+    /// main line ends.
+    ///
+    /// # Examples
+    /// ```
+    /// use crate::sgf_parse::SgfProp;
+    /// use sgf_parse::go::{parse, Prop};
+    ///
+    /// let sgf = "(;B[ee];W[ce](;B[ge](;W[gd])(;W[gf]))(;B[ce]))";
+    /// let node = &parse(sgf).unwrap()[0];
+    ///
+    /// let moves: Vec<Prop> = node
+    ///     .main_variation()
+    ///     .map(|n| {
+    ///         n.get_property("B")
+    ///             .or_else(|| n.get_property("W"))
+    ///             .unwrap()
+    ///             .clone()
+    ///     })
+    ///     .collect();
+    /// let expected = vec![
+    ///     Prop::new("B".to_string(), vec!["ee".to_string()]),
+    ///     Prop::new("W".to_string(), vec!["ce".to_string()]),
+    ///     Prop::new("B".to_string(), vec!["ge".to_string()]),
+    ///     Prop::new("W".to_string(), vec!["gd".to_string()]),
+    /// ];
+    ///
+    /// assert_eq!(moves, expected);
+    /// ```
+    pub fn main_variation(&self) -> impl Iterator<Item = &Self> {
+        MainVariationIter {
+            node: Some(self),
+            started: false,
+        }
+    }
+
     fn has_game_info(&self) -> bool {
         for prop in self.properties() {
             if let Some(PropertyType::GameInfo) = prop.property_type() {
@@ -189,6 +227,25 @@ impl<Prop: SgfProp> std::fmt::Display for SgfNode<Prop> {
                 .join(""),
         };
         write!(f, ";{}{}", prop_string, child_string)
+    }
+}
+
+#[derive(Debug)]
+struct MainVariationIter<'a, Prop: SgfProp> {
+    node: Option<&'a SgfNode<Prop>>,
+    started: bool,
+}
+
+impl<'a, Prop: SgfProp> Iterator for MainVariationIter<'a, Prop> {
+    type Item = &'a SgfNode<Prop>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.started {
+            self.node = self.node.and_then(|n| n.children().next());
+        } else {
+            self.started = true;
+        }
+        self.node
     }
 }
 
