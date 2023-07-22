@@ -198,6 +198,24 @@ impl<Prop: SgfProp> SgfNode<Prop> {
         }
     }
 
+    /// Returns the move property (if present) on the node.
+    ///
+    /// # Examples
+    /// ```
+    /// use crate::sgf_parse::SgfProp;
+    /// use sgf_parse::go::{parse, Prop};
+    /// let sgf = "(;GM[1]B[tt]C[Comment])";
+    /// let node = &parse(sgf).unwrap()[0];
+    ///
+    /// let mv = node.get_move();
+    /// assert_eq!(mv, Some(&Prop::new("B".to_string(), vec!["tt".to_string()])));
+    /// ```
+    pub fn get_move(&self) -> Option<&Prop> {
+        // Since there can only be one move per node in an sgf, this is safe.
+        self.properties()
+            .find(|p| p.property_type() == Some(PropertyType::Move))
+    }
+
     fn has_game_info(&self) -> bool {
         for prop in self.properties() {
             if let Some(PropertyType::GameInfo) = prop.property_type() {
