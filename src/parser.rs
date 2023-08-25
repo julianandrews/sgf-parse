@@ -428,4 +428,21 @@ mod test {
         let result = parse_with_options(input, &parse_options);
         assert_eq!(result, Err(SgfParseError::InvalidFF4Property));
     }
+
+    #[test]
+    fn compressed_list_for_unknown_game() {
+        let input = "(;GM[]MA[a:b])";
+        let gametree = parse(&input).unwrap().pop().unwrap();
+        let node = match gametree {
+            GameTree::Unknown(node) => node,
+            _ => panic!("Expected Unknown Game type"),
+        };
+        match node.get_property("MA") {
+            Some(unknown_game::Prop::MA(values)) => {
+                assert_eq!(values.len(), 1);
+                assert!(values.contains("a:b"));
+            }
+            _ => panic!("MA prop not found"),
+        }
+    }
 }

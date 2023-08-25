@@ -62,8 +62,13 @@ impl std::fmt::Display for Prop {
 }
 
 impl FromCompressedList for String {
-    fn from_compressed_list(_ul: &Self, _lr: &Self) -> Result<HashSet<Self>, SgfPropError> {
-        unimplemented!();
+    fn from_compressed_list(ul: &Self, lr: &Self) -> Result<HashSet<Self>, SgfPropError> {
+        // For an unknown game we have no way to parse a compressed list, but since points
+        // are just strings we can just return a single point with that string and let the
+        // user decide what to do with it.
+        let mut points = HashSet::new();
+        points.insert(format!("{}:{}", ul, lr));
+        Ok(points)
     }
 }
 
