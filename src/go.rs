@@ -219,7 +219,7 @@ impl std::str::FromStr for Point {
             if c.is_ascii_lowercase() {
                 Ok(c as u8 - b'a')
             } else if c.is_ascii_uppercase() {
-                Ok(c as u8 - b'A')
+                Ok(c as u8 - b'A' + 26)
             } else {
                 Err(SgfPropError {})
             }
@@ -234,5 +234,17 @@ impl std::str::FromStr for Point {
             x: map_char(chars[0])?,
             y: map_char(chars[1])?,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Point;
+
+    #[test]
+    fn large_move_numbers() {
+        let point: Point = "aC".parse().unwrap();
+        let expected = Point { x: 0, y: 28 };
+        assert_eq!(point, expected);
     }
 }
