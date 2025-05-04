@@ -33,12 +33,19 @@ pub fn parse(text: &str) -> Result<Vec<GameTree>, SgfParseError> {
 ///
 /// # Examples
 /// ```
-/// use sgf_parse::{parse_with_options, ParseOptions, GameType};
+/// use sgf_parse::{parse_with_options, ParseOptions, GameType, SgfParseError};
 ///
+/// // Default options
 /// let sgf = "(;SZ[9]C[Some comment];B[de];W[fe])(;B[de];W[ff])";
 /// let gametrees = parse_with_options(sgf, &ParseOptions::default()).unwrap();
 /// assert!(gametrees.len() == 2);
 /// assert!(gametrees.iter().all(|gametree| gametree.gametype() == GameType::Go));
+///
+/// // Strict FF[4] identifiers
+/// let sgf = "(;SZ[9]CoPyright[Julian Andrews 2025];B[de];W[fe])(;B[de];W[ff])";
+/// let parse_options = ParseOptions { convert_mixed_case_identifiers: false };
+/// let result = parse_with_options(sgf, &parse_options);
+/// assert_eq!(result, Err(SgfParseError::InvalidFF4Property));
 /// ```
 pub fn parse_with_options(
     text: &str,
@@ -60,6 +67,9 @@ pub fn parse_with_options(
 }
 
 /// Options for parsing SGF files.
+///
+/// # Examples
+/// See [`parse_with_options`] for usage examples.
 pub struct ParseOptions {
     /// Whether to allow conversion of FF\[3\] mixed case identifiers to FF\[4\].
     ///
