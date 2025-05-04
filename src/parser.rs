@@ -107,7 +107,7 @@ impl From<LexerError> for SgfParseError {
 impl std::fmt::Display for SgfParseError {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         match self {
-            SgfParseError::LexerError(e) => write!(f, "Error tokenizing: {}", e),
+            SgfParseError::LexerError(e) => write!(f, "Error tokenizing: {e}"),
             SgfParseError::UnexpectedGameTreeStart => write!(f, "Unexpected start of game tree"),
             SgfParseError::UnexpectedGameTreeEnd => write!(f, "Unexpected end of game tree"),
             SgfParseError::UnexpectedProperty => write!(f, "Unexpected property"),

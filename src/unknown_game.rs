@@ -67,7 +67,7 @@ impl FromCompressedList for String {
         // are just strings we can just return a single point with that string and let the
         // user decide what to do with it.
         let mut points = HashSet::new();
-        points.insert(format!("{}:{}", ul, lr));
+        points.insert(format!("{ul}:{lr}"));
         Ok(points)
     }
 }

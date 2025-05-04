@@ -120,7 +120,7 @@ impl<Prop: SgfProp> SgfNode<Prop> {
     /// assert_eq!(node.serialize(), sgf);
     /// ```
     pub fn serialize(&self) -> String {
-        format!("({})", self)
+        format!("({self})")
     }
 
     /// Returns `Ok` if the node's properties are valid according to the SGF FF\[4\] spec.
@@ -240,11 +240,11 @@ impl<Prop: SgfProp> std::fmt::Display for SgfNode<Prop> {
             1 => self.children().next().unwrap().to_string(),
             _ => self
                 .children()
-                .map(|x| format!("({})", x))
+                .map(|x| format!("({x})"))
                 .collect::<Vec<_>>()
                 .join(""),
         };
-        write!(f, ";{}{}", prop_string, child_string)
+        write!(f, ";{prop_string}{child_string}")
     }
 }
 
@@ -287,41 +287,40 @@ impl std::fmt::Display for InvalidNodeError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             InvalidNodeError::UnexpectedRootProperties(context) => {
-                write!(f, "Root properties in non-root node: {:?}", context)
+                write!(f, "Root properties in non-root node: {context:?}")
             }
             InvalidNodeError::UnexpectedGameInfo(context) => {
-                write!(f, "GameInfo properties in node and a child {:?}", context)
+                write!(f, "GameInfo properties in node and a child {context:?}")
             }
             InvalidNodeError::RepeatedMarkup(context) => {
-                write!(f, "Multiple markup properties on same point {:?}", context)
+                write!(f, "Multiple markup properties on same point {context:?}")
             }
             InvalidNodeError::MultipleMoves(context) => {
-                write!(f, "B and W moves in same node {:?}", context)
+                write!(f, "B and W moves in same node {context:?}")
             }
             InvalidNodeError::RepeatedIdentifier(context) => {
-                write!(f, "Identifier repeated in node {:?}", context)
+                write!(f, "Identifier repeated in node {context:?}")
             }
             InvalidNodeError::SetupAndMove(context) => {
-                write!(f, "Setup and move properties in same node {:?}", context)
+                write!(f, "Setup and move properties in same node {context:?}")
             }
             InvalidNodeError::KoWithoutMove(context) => {
-                write!(f, "Ko in node without B or W {:?}", context)
+                write!(f, "Ko in node without B or W {context:?}")
             }
             InvalidNodeError::MultipleMoveAnnotations(context) => {
-                write!(f, "Multiple move annotations in same node {:?}", context)
+                write!(f, "Multiple move annotations in same node {context:?}")
             }
             InvalidNodeError::UnexpectedMoveAnnotation(context) => {
-                write!(f, "Move annotation without move in node {:?}", context)
+                write!(f, "Move annotation without move in node {context:?}")
             }
             InvalidNodeError::MultipleExclusiveAnnotations(context) => {
                 write!(
                     f,
-                    "Multiple DM, UC, GW or GB properties in node {:?}",
-                    context
+                    "Multiple DM, UC, GW or GB properties in node {context:?}"
                 )
             }
             InvalidNodeError::InvalidProperty(context) => {
-                write!(f, "Invalid property: {}", context)
+                write!(f, "Invalid property: {context:?}")
             }
         }
     }

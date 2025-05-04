@@ -71,5 +71,5 @@ mod private {
     pub trait Sealed {}
     impl Sealed for crate::go::Prop {}
     impl Sealed for crate::unknown_game::Prop {}
-    impl<'a, T> Sealed for &'a T where T: ?Sized + Sealed {}
+    impl<T> Sealed for &T where T: ?Sized + Sealed {}
 }
