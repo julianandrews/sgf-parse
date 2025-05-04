@@ -41,7 +41,7 @@ struct Lexer<'a> {
     cursor: usize,
 }
 
-impl<'a> Lexer<'a> {
+impl Lexer<'_> {
     fn trim_leading_whitespace(&mut self) {
         while self.cursor < self.text.len()
             && (self.text.as_bytes()[self.cursor] as char).is_ascii_whitespace()
@@ -117,7 +117,7 @@ impl<'a> Lexer<'a> {
     }
 }
 
-impl<'a> Iterator for Lexer<'a> {
+impl Iterator for Lexer<'_> {
     type Item = Result<(Token, std::ops::Range<usize>), LexerError>;
 
     fn next(&mut self) -> Option<Self::Item> {
