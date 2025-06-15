@@ -48,6 +48,27 @@ impl GameTree {
         }
     }
 
+    /// Return a reference to the root [`SgfNode`] of the tree.
+    ///
+    /// This is a convenience method for go games.
+    ///
+    /// # Errors
+    /// Returns an error if the variant isn't a [`GameTree::GoGame`].
+    ///
+    /// # Examples
+    /// ```
+    /// use sgf_parse::parse;
+    ///
+    /// let gametrees = parse("(;B[de]C[A comment])").unwrap();
+    /// let sgf_node = gametrees.first().unwrap().as_go_node().unwrap();
+    /// ```
+    pub fn as_go_node(&self) -> Result<&'_ SgfNode<go::Prop>, SgfParseError> {
+        match self {
+            Self::GoGame(sgf_node) => Ok(sgf_node),
+            _ => Err(SgfParseError::UnexpectedGameType),
+        }
+    }
+
     /// Returns the [`GameType`] for this [`GameTree`].
     ///
     /// # Examples
