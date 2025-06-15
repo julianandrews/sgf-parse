@@ -51,6 +51,7 @@ pub fn parse_with_options(
     text: &str,
     options: &ParseOptions,
 ) -> Result<Vec<GameTree>, SgfParseError> {
+    let text = text.trim();
     let tokens = tokenize(text)
         .map(|result| match result {
             Err(e) => Err(SgfParseError::LexerError(e)),
@@ -454,5 +455,12 @@ mod test {
             }
             _ => panic!("MA prop not found"),
         }
+    }
+
+    #[test]
+    fn strips_whitespace() {
+        let input = "\n(;GM[1];B[cc])";
+        let sgf_nodes = go::parse(&input).unwrap();
+        assert_eq!(sgf_nodes.len(), 1);
     }
 }
