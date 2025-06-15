@@ -43,7 +43,10 @@ pub fn parse(text: &str) -> Result<Vec<GameTree>, SgfParseError> {
 ///
 /// // Strict FF[4] identifiers
 /// let sgf = "(;SZ[9]CoPyright[Julian Andrews 2025];B[de];W[fe])(;B[de];W[ff])";
-/// let parse_options = ParseOptions { convert_mixed_case_identifiers: false };
+/// let parse_options = ParseOptions {
+///     convert_mixed_case_identifiers: false,
+///     ..ParseOptions::default()
+/// };
 /// let result = parse_with_options(sgf, &parse_options);
 /// assert_eq!(result, Err(SgfParseError::InvalidFF4Property));
 /// ```
@@ -58,7 +61,7 @@ pub fn parse_with_options(
             Ok((token, _span)) => Ok(token),
         })
         .collect::<Result<Vec<_>, _>>()?;
-    split_by_gametree(&tokens)?
+    split_by_gametree(&tokens, options.lenient)?
         .into_iter()
         .map(|tokens| match find_gametype(tokens)? {
             GameType::Go => parse_gametree::<go::Prop>(tokens, options),
@@ -77,12 +80,18 @@ pub struct ParseOptions {
     /// All lower case letters are dropped.
     /// This should allow parsing any older files which are valid, but not valid FF\[4\].
     pub convert_mixed_case_identifiers: bool,
+    /// Whether to use lenient parsing.
+    ///
+    /// In lenient mode, the parser should never return an error, but will instead parse the SGF
+    /// until it hits an error, and then return whatever it's managed to parse.
+    pub lenient: bool,
 }
 
 impl Default for ParseOptions {
     fn default() -> Self {
         ParseOptions {
             convert_mixed_case_identifiers: true,
+            lenient: false,
         }
     }
 }
@@ -130,7 +139,7 @@ impl std::error::Error for SgfParseError {}
 //
 // This will let us easily scan each gametree for GM properties.
 // Only considers StartGameTree/EndGameTree tokens.
-fn split_by_gametree(tokens: &[Token]) -> Result<Vec<&[Token]>, SgfParseError> {
+fn split_by_gametree(tokens: &[Token], lenient: bool) -> Result<Vec<&[Token]>, SgfParseError> {
     let mut gametrees = vec![];
     let mut gametree_depth: u64 = 0;
     let mut slice_start = 0;
@@ -139,7 +148,11 @@ fn split_by_gametree(tokens: &[Token]) -> Result<Vec<&[Token]>, SgfParseError> {
             Token::StartGameTree => gametree_depth += 1,
             Token::EndGameTree => {
                 if gametree_depth == 0 {
-                    return Err(SgfParseError::UnexpectedGameTreeEnd);
+                    if lenient {
+                        break;
+                    } else {
+                        return Err(SgfParseError::UnexpectedGameTreeEnd);
+                    }
                 }
                 gametree_depth -= 1;
                 if gametree_depth == 0 {
@@ -151,7 +164,12 @@ fn split_by_gametree(tokens: &[Token]) -> Result<Vec<&[Token]>, SgfParseError> {
         }
     }
     if gametree_depth != 0 {
-        return Err(SgfParseError::UnexpectedEndOfData);
+        if lenient {
+            // For lenient parsing assume all remaining tokens are part of the last gametree.
+            gametrees.push(&tokens[slice_start..]);
+        } else {
+            return Err(SgfParseError::UnexpectedEndOfData);
+        }
     }
 
     Ok(gametrees)
@@ -187,14 +205,24 @@ where
                 if let Some(node_list_ptr) = incomplete_child_lists.last() {
                     let node_list = unsafe { node_list_ptr.as_ref() };
                     if node_list.is_empty() {
-                        return Err(SgfParseError::UnexpectedGameTreeStart);
+                        if options.lenient {
+                            break;
+                        } else {
+                            return Err(SgfParseError::UnexpectedGameTreeStart);
+                        }
                     }
                 }
                 incomplete_child_lists.push(current_node_list_ptr);
             }
             Token::EndGameTree => match incomplete_child_lists.pop() {
                 Some(node_list) => current_node_list_ptr = node_list,
-                None => return Err(SgfParseError::UnexpectedGameTreeEnd),
+                None => {
+                    if options.lenient {
+                        break;
+                    } else {
+                        return Err(SgfParseError::UnexpectedGameTreeEnd);
+                    }
+                }
             },
             Token::StartNode => {
                 let mut new_node = SgfNode::default();
@@ -214,6 +242,8 @@ where
                                         .chars()
                                         .filter(|c| c.is_ascii_uppercase())
                                         .collect()
+                                } else if options.lenient {
+                                    break;
                                 } else {
                                     return Err(SgfParseError::InvalidFF4Property);
                                 }
@@ -230,11 +260,17 @@ where
                 current_node_list_ptr =
                     NonNull::new(&mut node_list.last_mut().unwrap().children).unwrap();
             }
-            Token::Property(_) => return Err(SgfParseError::UnexpectedProperty),
+            Token::Property(_) => {
+                if options.lenient {
+                    break;
+                } else {
+                    return Err(SgfParseError::UnexpectedProperty);
+                }
+            }
         }
     }
 
-    if !incomplete_child_lists.is_empty() || collection.len() != 1 {
+    if !options.lenient && (!incomplete_child_lists.is_empty() || collection.len() != 1) {
         return Err(SgfParseError::UnexpectedEndOfData);
     }
     let mut root_node = collection.into_iter().next().unwrap();
@@ -461,6 +497,28 @@ mod test {
     fn strips_whitespace() {
         let input = "\n(;GM[1];B[cc])";
         let sgf_nodes = go::parse(&input).unwrap();
+        assert_eq!(sgf_nodes.len(), 1);
+    }
+
+    #[test]
+    fn lenient_parsing_unclosed_parens_ok() {
+        let input = "\n(;GM[1];B[cc]";
+        let parse_options = ParseOptions {
+            lenient: true,
+            ..ParseOptions::default()
+        };
+        let sgf_nodes = parse_with_options(input, &parse_options).unwrap();
+        assert_eq!(sgf_nodes.len(), 1);
+    }
+
+    #[test]
+    fn lenient_parsing_ignores_trailing_garbage() {
+        let input = "\n(;GM[1];B[cc]))";
+        let parse_options = ParseOptions {
+            lenient: true,
+            ..ParseOptions::default()
+        };
+        let sgf_nodes = parse_with_options(input, &parse_options).unwrap();
         assert_eq!(sgf_nodes.len(), 1);
     }
 }
