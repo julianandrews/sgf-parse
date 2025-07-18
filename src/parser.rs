@@ -273,7 +273,10 @@ where
     if !options.lenient && (!incomplete_child_lists.is_empty() || collection.len() != 1) {
         return Err(SgfParseError::UnexpectedEndOfData);
     }
-    let mut root_node = collection.into_iter().next().unwrap();
+    let mut root_node = collection
+        .into_iter()
+        .next()
+        .ok_or(SgfParseError::UnexpectedEndOfData)?;
     root_node.is_root = true;
     Ok(root_node.into())
 }
