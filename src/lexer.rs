@@ -17,7 +17,8 @@ pub enum Token {
 pub enum LexerError {
     UnexpectedPropertyIdentifier,
     MissingPropertyIdentifier,
-    UnexpectedEndOfProperty,
+    UnexpectedEndOfPropertyIdentifier,
+    UnexpectedEndOfPropertyValue,
 }
 
 impl std::fmt::Display for LexerError {
@@ -29,7 +30,12 @@ impl std::fmt::Display for LexerError {
             LexerError::MissingPropertyIdentifier => {
                 write!(f, "Missing property identifier")
             }
-            LexerError::UnexpectedEndOfProperty => write!(f, "Unexpected end of property"),
+            LexerError::UnexpectedEndOfPropertyIdentifier => {
+                write!(f, "Unexpected end of property identifier")
+            }
+            LexerError::UnexpectedEndOfPropertyValue => {
+                write!(f, "Unexpected end of property value")
+            }
         }
     }
 }
@@ -74,7 +80,7 @@ impl Lexer<'_> {
                     self.cursor += 1;
                     prop_ident.push(c);
                 }
-                Some(_c) => return Err(LexerError::UnexpectedEndOfProperty),
+                Some(_c) => return Err(LexerError::UnexpectedEndOfPropertyIdentifier),
                 None => return Err(LexerError::MissingPropertyIdentifier),
             }
         }
@@ -109,7 +115,7 @@ impl Lexer<'_> {
                     escaped = false;
                     prop_value.push(c);
                 }
-                None => return Err(LexerError::UnexpectedEndOfProperty),
+                None => return Err(LexerError::UnexpectedEndOfPropertyValue),
             }
         }
 

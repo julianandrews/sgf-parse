@@ -55,12 +55,19 @@ pub fn parse_with_options(
     options: &ParseOptions,
 ) -> Result<Vec<GameTree>, SgfParseError> {
     let text = text.trim();
-    let tokens = tokenize(text)
-        .map(|result| match result {
-            Err(e) => Err(SgfParseError::LexerError(e)),
-            Ok((token, _span)) => Ok(token),
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+    let tokens = if options.lenient {
+        tokenize(text)
+            .take_while(Result::is_ok)
+            .map(|result| result.unwrap().0)
+            .collect()
+    } else {
+        tokenize(text)
+            .map(|result| match result {
+                Err(e) => Err(SgfParseError::LexerError(e)),
+                Ok((token, _span)) => Ok(token),
+            })
+            .collect::<Result<Vec<_>, _>>()?
+    };
     split_by_gametree(&tokens, options.lenient)?
         .into_iter()
         .map(|tokens| match find_gametype(tokens)? {
@@ -510,8 +517,8 @@ mod test {
             lenient: true,
             ..ParseOptions::default()
         };
-        let sgf_nodes = parse_with_options(input, &parse_options).unwrap();
-        assert_eq!(sgf_nodes.len(), 1);
+        let game_trees = parse_with_options(input, &parse_options).unwrap();
+        assert_eq!(game_trees.len(), 1);
     }
 
     #[test]
@@ -521,7 +528,57 @@ mod test {
             lenient: true,
             ..ParseOptions::default()
         };
-        let sgf_nodes = parse_with_options(input, &parse_options).unwrap();
-        assert_eq!(sgf_nodes.len(), 1);
+        let game_trees = parse_with_options(input, &parse_options).unwrap();
+        assert_eq!(game_trees.len(), 1);
+    }
+
+    #[test]
+    fn lenient_parsing_handles_unescaped_property_end() {
+        let input = "(;B[cc];W[dd];C[username [12k]: foo])";
+        let parse_options = ParseOptions {
+            lenient: true,
+            ..ParseOptions::default()
+        };
+        let game_trees = parse_with_options(input, &parse_options).unwrap();
+        assert_eq!(game_trees.len(), 1);
+        let sgf_node = game_trees[0].as_go_node().unwrap();
+        // Should parse up through "[12k]" successfully
+        assert_eq!(sgf_node.main_variation().count(), 3);
+    }
+
+    #[test]
+    fn lenient_parsing_handles_unclosed_property_value() {
+        let input = "(;B[cc];W[dd];B[ee";
+        let parse_options = ParseOptions {
+            lenient: true,
+            ..ParseOptions::default()
+        };
+        let game_trees = parse_with_options(input, &parse_options).unwrap();
+        assert_eq!(game_trees.len(), 1);
+        let sgf_node = game_trees[0].as_go_node().unwrap();
+        // Should find 3 nodes. The last unfinished node has no properties since "B[ee" is unclosed.
+        assert_eq!(sgf_node.main_variation().count(), 3);
+        assert_eq!(
+            sgf_node.main_variation().last().unwrap().properties.len(),
+            0
+        );
+    }
+
+    #[test]
+    fn lenient_parsing_handles_missing_property_value() {
+        let input = "(;B[cc];W[dd];B";
+        let parse_options = ParseOptions {
+            lenient: true,
+            ..ParseOptions::default()
+        };
+        let game_trees = parse_with_options(input, &parse_options).unwrap();
+        assert_eq!(game_trees.len(), 1);
+        let sgf_node = game_trees[0].as_go_node().unwrap();
+        // Should find 3 nodes. The last node has no properties since "B" is missing its value
+        assert_eq!(sgf_node.main_variation().count(), 3);
+        assert_eq!(
+            sgf_node.main_variation().last().unwrap().properties.len(),
+            0
+        );
     }
 }
