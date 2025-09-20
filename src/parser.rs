@@ -280,10 +280,15 @@ where
     if !options.lenient && (!incomplete_child_lists.is_empty() || collection.len() != 1) {
         return Err(SgfParseError::UnexpectedEndOfData);
     }
-    let mut root_node = collection
-        .into_iter()
-        .next()
-        .ok_or(SgfParseError::UnexpectedEndOfData)?;
+    let mut root_node = if options.lenient {
+        // A valid game tree must have at least a single (empty) node. So make one!
+        collection.into_iter().next().unwrap_or_default()
+    } else {
+        collection
+            .into_iter()
+            .next()
+            .ok_or(SgfParseError::UnexpectedEndOfData)?
+    };
     root_node.is_root = true;
     Ok(root_node.into())
 }
@@ -576,6 +581,24 @@ mod test {
         let sgf_node = game_trees[0].as_go_node().unwrap();
         // Should find 3 nodes. The last node has no properties since "B" is missing its value
         assert_eq!(sgf_node.main_variation().count(), 3);
+        assert_eq!(
+            sgf_node.main_variation().last().unwrap().properties.len(),
+            0
+        );
+    }
+
+    #[test]
+    fn lenient_parsing_handles_missing_first_node_start() {
+        let input = "(B[cc])";
+        let parse_options = ParseOptions {
+            lenient: true,
+            ..ParseOptions::default()
+        };
+        let game_trees = parse_with_options(input, &parse_options).unwrap();
+        assert_eq!(game_trees.len(), 1);
+        let sgf_node = game_trees[0].as_go_node().unwrap();
+        // A single empty node.
+        assert_eq!(sgf_node.main_variation().count(), 1);
         assert_eq!(
             sgf_node.main_variation().last().unwrap().properties.len(),
             0
