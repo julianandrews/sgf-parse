@@ -70,9 +70,16 @@ pub fn parse_with_options(
     };
     split_by_gametree(&tokens, options.lenient)?
         .into_iter()
-        .map(|tokens| match find_gametype(tokens)? {
-            GameType::Go => parse_gametree::<go::Prop>(tokens, options),
-            GameType::Unknown => parse_gametree::<unknown_game::Prop>(tokens, options),
+        .map(|tokens| {
+            let gametype = if options.lenient {
+                find_gametype(tokens).unwrap_or(GameType::Go)
+            } else {
+                find_gametype(tokens)?
+            };
+            match gametype {
+                GameType::Go => parse_gametree::<go::Prop>(tokens, options),
+                GameType::Unknown => parse_gametree::<unknown_game::Prop>(tokens, options),
+            }
         })
         .collect::<Result<_, _>>()
 }
@@ -113,6 +120,7 @@ pub enum SgfParseError {
     UnexpectedEndOfData,
     UnexpectedGameType,
     InvalidFF4Property,
+    InvalidGameType,
     NoGameTrees,
 }
 
@@ -137,6 +145,7 @@ impl std::fmt::Display for SgfParseError {
                     "Invalid FF[4] property without `convert_mixed_case_identifiers`"
                 )
             }
+            SgfParseError::InvalidGameType => write!(f, "Invalid game type"),
             SgfParseError::NoGameTrees => write!(f, "No game trees found"),
         }
     }
@@ -308,17 +317,13 @@ where
 //
 // This function is necessary because we need to know the game before we can do the parsing.
 fn find_gametype(tokens: &[Token]) -> Result<GameType, SgfParseError> {
-    match find_gametree_root_prop_values("GM", tokens)? {
+    match find_gametree_root_prop_values("GM", tokens)?.map(|v| v.as_slice()) {
         None => Ok(GameType::Go),
-        Some(values) => {
-            if values.len() != 1 {
-                return Ok(GameType::Unknown);
-            }
-            match values[0].as_str() {
-                "1" => Ok(GameType::Go),
-                _ => Ok(GameType::Unknown),
-            }
-        }
+        Some([value]) if value.parse::<i32>().is_ok() => match value.as_str() {
+            "1" => Ok(GameType::Go),
+            _ => Ok(GameType::Unknown),
+        },
+        _ => Err(SgfParseError::InvalidGameType),
     }
 }
 
