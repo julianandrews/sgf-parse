@@ -113,6 +113,7 @@ pub enum SgfParseError {
     UnexpectedEndOfData,
     UnexpectedGameType,
     InvalidFF4Property,
+    NoGameTrees,
 }
 
 impl From<LexerError> for SgfParseError {
@@ -136,6 +137,7 @@ impl std::fmt::Display for SgfParseError {
                     "Invalid FF[4] property without `convert_mixed_case_identifiers`"
                 )
             }
+            SgfParseError::NoGameTrees => write!(f, "No game trees found"),
         }
     }
 }
@@ -176,6 +178,15 @@ fn split_by_gametree(tokens: &[Token], lenient: bool) -> Result<Vec<&[Token]>, S
             gametrees.push(&tokens[slice_start..]);
         } else {
             return Err(SgfParseError::UnexpectedEndOfData);
+        }
+    }
+    if gametrees.len() == 0 {
+        if lenient {
+            // For a valid SGF there needs to be at least one gametree. If we didn't fine one but we're
+            // using lenient mode, just populate an empty gametree.
+            gametrees.push(&[]);
+        } else {
+            return Err(SgfParseError::NoGameTrees);
         }
     }
 
