@@ -509,7 +509,7 @@ mod test {
 
     #[test]
     fn compressed_list_for_unknown_game() {
-        let input = "(;GM[]MA[a:b])";
+        let input = "(;GM[127]MA[a:b])";
         let gametree = parse(&input).unwrap().pop().unwrap();
         let node = match gametree {
             GameTree::Unknown(node) => node,
