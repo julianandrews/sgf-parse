@@ -180,7 +180,7 @@ fn split_by_gametree(tokens: &[Token], lenient: bool) -> Result<Vec<&[Token]>, S
             return Err(SgfParseError::UnexpectedEndOfData);
         }
     }
-    if gametrees.len() == 0 {
+    if gametrees.is_empty() {
         if lenient {
             // For a valid SGF there needs to be at least one gametree. If we didn't fine one but we're
             // using lenient mode, just populate an empty gametree.
