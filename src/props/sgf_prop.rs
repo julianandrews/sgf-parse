@@ -1,13 +1,13 @@
 use std::fmt::{Debug, Display};
 
-use super::{PropertyType, ToSgf};
+use super::{PropertyType, SetToSgf, ToSgf};
 use crate::InvalidNodeError;
 
 /// A type that can be used for properties in an [`SgfNode`](`crate::SgfNode`).
 ///
 /// This trait is sealed and cannot be implemented for types outside of `sgf_parse`.
 pub trait SgfProp: Debug + Display + Sized + Clone + Eq + private::Sealed {
-    type Point: Debug + Clone + PartialEq + Eq + std::hash::Hash + ToSgf;
+    type Point: Debug + Clone + PartialEq + Eq + std::hash::Hash + ToSgf + SetToSgf;
     type Stone: Debug + Clone + PartialEq + Eq + std::hash::Hash + ToSgf;
     type Move: Debug + Clone + PartialEq + Eq + ToSgf;
 

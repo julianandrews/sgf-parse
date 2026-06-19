@@ -8,9 +8,19 @@
 //! SGF Move, Point, and Stone values are all simply stored as strings.
 
 use crate::props::parse::FromCompressedList;
-use crate::props::{PropertyType, SgfPropError, ToSgf};
+use crate::props::{PropertyType, SetToSgf, SgfPropError, ToSgf};
 use crate::{InvalidNodeError, SgfProp};
 use std::collections::HashSet;
+
+impl SetToSgf for String {
+    fn set_to_sgf(collection: &HashSet<String>) -> String {
+        collection
+            .iter()
+            .map(|x| x.to_sgf())
+            .collect::<Vec<String>>()
+            .join("][")
+    }
+}
 
 sgf_prop! {
     Prop, String, String, String,

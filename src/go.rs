@@ -12,7 +12,7 @@
 use std::collections::HashSet;
 
 use crate::props::parse::{parse_elist, parse_single_value, FromCompressedList};
-use crate::props::{PropertyType, SgfPropError, ToSgf};
+use crate::props::{PropertyType, SetToSgf, SgfPropError, ToSgf};
 use crate::{InvalidNodeError, SgfNode, SgfParseError, SgfProp};
 
 /// Returns the [`SgfNode`] values for Go games parsed from the provided text.
@@ -157,8 +157,8 @@ impl std::fmt::Display for Prop {
             None => match self {
                 Self::HA(x) => x.to_sgf(),
                 Self::KM(x) => x.to_sgf(),
-                Self::TB(x) => x.to_sgf(),
-                Self::TW(x) => x.to_sgf(),
+                Self::TB(x) => Point::set_to_sgf(x),
+                Self::TW(x) => Point::set_to_sgf(x),
                 _ => panic!("Unimplemented identifier for {:?}", self),
             },
         };
@@ -197,6 +197,29 @@ impl ToSgf for Move {
 impl ToSgf for Point {
     fn to_sgf(&self) -> String {
         format!("{}{}", (self.x + b'a') as char, (self.y + b'a') as char)
+    }
+}
+
+impl SetToSgf for Point {
+    fn set_to_sgf(collection: &HashSet<Self>) -> String {
+        if collection.len() >= 2 {
+            let min_x = collection.iter().map(|p| p.x).min().unwrap();
+            let max_x = collection.iter().map(|p| p.x).max().unwrap();
+            let min_y = collection.iter().map(|p| p.y).min().unwrap();
+            let max_y = collection.iter().map(|p| p.y).max().unwrap();
+            if collection.len() == ((max_x + 1 - min_x) * (max_y + 1 - min_y)) as usize {
+                return format!(
+                    "{}:{}",
+                    (Point { x: min_x, y: min_y }).to_sgf(),
+                    (Point { x: max_x, y: max_y }).to_sgf()
+                );
+            }
+        }
+        collection
+            .iter()
+            .map(|x| x.to_sgf())
+            .collect::<Vec<String>>()
+            .join("][")
     }
 }
 
@@ -239,6 +262,10 @@ impl std::str::FromStr for Point {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
+
+    use crate::props::SetToSgf;
+
     use super::Point;
 
     #[test]
@@ -246,5 +273,36 @@ mod tests {
         let point: Point = "aC".parse().unwrap();
         let expected = Point { x: 0, y: 28 };
         assert_eq!(point, expected);
+    }
+
+    #[test]
+    fn compressed_point_list() {
+        let set: HashSet<Point> = (0..5)
+            .flat_map(|x| (0..4).map(move |y| Point { x, y }))
+            .collect();
+        assert_eq!(Point::set_to_sgf(&set), "aa:ed");
+    }
+
+    #[test]
+    fn uncompressed_point_list() {
+        let mut set: HashSet<Point> = (0..3)
+            .flat_map(|x| (0..2).map(move |y| Point { x, y }))
+            .collect();
+        set.take(&Point { x: 0, y: 1 });
+        let sgf = Point::set_to_sgf(&set);
+
+        let mut lhs: Vec<char> = sgf.chars().collect();
+        lhs.sort();
+        let lhs: String = lhs.into_iter().collect();
+
+        assert_eq!(lhs, "[[[[]]]]aaaabbbbcc");
+    }
+
+    #[test]
+    fn single_point_compression() {
+        let mut set = HashSet::new();
+        assert_eq!(Point::set_to_sgf(&set), "");
+        set.insert(Point { x: 3, y: 4 });
+        assert_eq!(Point::set_to_sgf(&set), "de");
     }
 }

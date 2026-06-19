@@ -334,7 +334,7 @@ macro_rules! sgf_prop {
                     Self::MN(x) => Some(x.to_sgf()),
                     Self::W(x) => Some(x.to_sgf()),
                     Self::AB(x) => Some(x.to_sgf()),
-                    Self::AE(x) => Some(x.to_sgf()),
+                    Self::AE(x) => Some(<$pt>::set_to_sgf(x)),
                     Self::AW(x) => Some(x.to_sgf()),
                     Self::PL(x) => Some(x.to_sgf()),
                     Self::C(x) => Some(x.to_sgf()),
@@ -346,18 +346,18 @@ macro_rules! sgf_prop {
                     Self::UC(x) => Some(x.to_sgf()),
                     Self::V(x) => Some(x.to_sgf()),
                     Self::AR(x) => Some(x.to_sgf()),
-                    Self::CR(x) => Some(x.to_sgf()),
+                    Self::CR(x) => Some(<$pt>::set_to_sgf(x)),
                     Self::DO => Some("".to_string()),
                     Self::IT => Some("".to_string()),
                     Self::BM(x) => Some(x.to_sgf()),
                     Self::TE(x) => Some(x.to_sgf()),
-                    Self::DD(x) => Some(x.to_sgf()),
+                    Self::DD(x) => Some(<$pt>::set_to_sgf(x)),
                     Self::LB(x) => Some(x.to_sgf()),
                     Self::LN(x) => Some(x.to_sgf()),
-                    Self::MA(x) => Some(x.to_sgf()),
-                    Self::SL(x) => Some(x.to_sgf()),
-                    Self::SQ(x) => Some(x.to_sgf()),
-                    Self::TR(x) => Some(x.to_sgf()),
+                    Self::MA(x) => Some(<$pt>::set_to_sgf(x)),
+                    Self::SL(x) => Some(<$pt>::set_to_sgf(x)),
+                    Self::SQ(x) => Some(<$pt>::set_to_sgf(x)),
+                    Self::TR(x) => Some(<$pt>::set_to_sgf(x)),
                     Self::AP(x) => Some(x.to_sgf()),
                     Self::CA(x) => Some(x.to_sgf()),
                     Self::FF(x) => Some(x.to_sgf()),
@@ -391,7 +391,7 @@ macro_rules! sgf_prop {
                     Self::WL(x) => Some(x.to_sgf()),
                     Self::FG(x) => Some(x.to_sgf()),
                     Self::PM(x) => Some(x.to_sgf()),
-                    Self::VW(x) => Some(x.to_sgf()),
+                    Self::VW(x) => Some(<$pt>::set_to_sgf(x)),
                     Self::Unknown(_, x) => Some(x.to_sgf()),
                     Self::Invalid(_, x) => Some(x.to_sgf()),
                     #[allow(unreachable_patterns)]
@@ -454,13 +454,11 @@ macro_rules! sgf_prop {
                     match prop.property_type() {
                         Some(PropertyType::Move) => move_node = true,
                         Some(PropertyType::Setup) => setup_node = true,
-                        Some(PropertyType::Root) => {
-                            if !is_root {
-                                return Err(InvalidNodeError::UnexpectedRootProperties(format!(
-                                            "{:?}",
-                                            properties
-                                )));
-                            }
+                        Some(PropertyType::Root) if !is_root => {
+                            return Err(InvalidNodeError::UnexpectedRootProperties(format!(
+                                "{:?}",
+                                properties
+                            )))
                         }
                         _ => {}
                     }

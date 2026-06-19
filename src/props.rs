@@ -6,5 +6,5 @@ mod values;
 
 pub use error::SgfPropError;
 pub use sgf_prop::SgfProp;
-pub use to_sgf::ToSgf;
+pub use to_sgf::{SetToSgf, ToSgf};
 pub use values::{Color, Double, PropertyType, SimpleText, Text};

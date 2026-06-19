@@ -115,7 +115,7 @@ impl<Prop: SgfProp> SgfNode<Prop> {
     /// ```
     /// use sgf_parse::go::parse;
     ///
-    /// let sgf = "(;SZ[13:13];B[de])";
+    /// let sgf = "(;SZ[13];B[de])";
     /// let node = parse(sgf).unwrap().into_iter().next().unwrap();
     /// assert_eq!(node.serialize(), sgf);
     /// ```

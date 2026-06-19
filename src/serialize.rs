@@ -24,7 +24,7 @@ use crate::GameTree;
 /// let gametrees = vec![first_node.into(), second_node.into()];
 /// let serialized = serialize(&gametrees);
 ///
-/// assert_eq!(serialized, "(;SZ[19:19];B[dd])(;C[A comment])");
+/// assert_eq!(serialized, "(;SZ[19];B[dd])(;C[A comment])");
 /// ```
 pub fn serialize<'a>(gametrees: impl IntoIterator<Item = &'a GameTree>) -> String {
     gametrees
@@ -41,7 +41,7 @@ mod test {
 
     #[test]
     fn simple_sgf() {
-        let sgf = "(;C[Some comment];B[de]FOO[bar][baz];W[fe])(;B[de];W[ff])";
+        let sgf = "(;TW[aa:ef];SZ[17:19];C[Some comment];B[de]FOO[bar][baz];W[fe])(;B[de];W[ff])";
         let game_trees = parse(sgf).unwrap();
         let result = serialize(&game_trees);
         assert_eq!(result, sgf);
