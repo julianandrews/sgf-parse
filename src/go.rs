@@ -207,7 +207,7 @@ impl SetToSgf for Point {
             let max_x = collection.iter().map(|p| p.x).max().unwrap();
             let min_y = collection.iter().map(|p| p.y).min().unwrap();
             let max_y = collection.iter().map(|p| p.y).max().unwrap();
-            if collection.len() == ((max_x + 1 - min_x) * (max_y + 1 - min_y)) as usize {
+            if collection.len() == ((max_x + 1 - min_x) as usize) * ((max_y + 1 - min_y) as usize) {
                 return format!(
                     "{}:{}",
                     (Point { x: min_x, y: min_y }).to_sgf(),
